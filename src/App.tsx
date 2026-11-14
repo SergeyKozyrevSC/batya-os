@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { initialSpheres } from './initial-data';
 
-const areas = [
-  { name: 'Career', description: 'Отклики и подготовка к интервью' },
-  { name: 'Fitness', description: 'Тренировки и движение' },
-  { name: 'Music', description: 'Гитара и новые песни' },
-  { name: 'Learning', description: 'Обучение и личные проекты' },
-];
+const sphereDescriptions: Record<string, string> = {
+  'sphere-career': 'Резюме и подготовка к собеседованиям',
+  'sphere-fitness': 'Тренировки и движение',
+  'sphere-music': 'Гитара и музыкальная практика',
+  'sphere-learning': 'Новые знания и обучение',
+  'sphere-projects': 'Личные проекты и подзадачи',
+  'sphere-personal': 'Личные дела и повседневные задачи',
+};
 
 export default function App() {
   const [testActivities, setTestActivities] = useState(0);
@@ -14,22 +17,24 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <div>
-          <div className="brand">BATYA OS</div>
+          <div className="brand">BatyaOS</div>
           <p className="brand-caption">by digital_batya</p>
         </div>
 
         <div className="sidebar-section">
-          <span className="sidebar-label">WORKSPACE</span>
-          <div className="current-page">Dashboard</div>
+          <span className="sidebar-label">РАБОЧЕЕ ПРОСТРАНСТВО</span>
+          <div className="current-page">Обзор</div>
         </div>
 
-        <p className="sidebar-footer">Small steps. Real progress.</p>
+        <p className="sidebar-footer">
+          Маленькие шаги. Реальный прогресс.
+        </p>
       </aside>
 
       <main className="main">
         <header className="header">
           <div>
-            <p className="eyebrow">YOUR PERSONAL WORKSPACE</p>
+            <p className="eyebrow">ТВОЁ ЛИЧНОЕ ПРОСТРАНСТВО</p>
             <h1>Привет, Сергей</h1>
             <p className="subtitle">
               Твои цели, действия и прогресс — в одном месте.
@@ -56,16 +61,24 @@ export default function App() {
 
         <section className="section-heading">
           <h2>Сферы жизни</h2>
-          <span>4 направления</span>
+          <span>Всего сфер: {initialSpheres.length}</span>
         </section>
 
         <div className="area-grid">
-          {areas.map((area) => (
-            <article className="area-card" key={area.name}>
-              <span className="area-mark">{area.name.slice(0, 1)}</span>
-              <h3>{area.name}</h3>
-              <p>{area.description}</p>
-              <span className="area-status">Цели пока не добавлены</span>
+          {initialSpheres.map((sphere) => (
+            <article className="area-card" key={sphere.id}>
+              <span className="area-mark" aria-hidden="true">
+                {sphere.name.slice(0, 1)}
+              </span>
+
+              <h3>{sphere.name}</h3>
+
+              <p>
+                {sphereDescriptions[sphere.id] ??
+                  'Твои действия в этом направлении'}
+              </p>
+
+              <span className="area-status">Пока нет записей</span>
             </article>
           ))}
         </div>
@@ -75,8 +88,8 @@ export default function App() {
         </section>
 
         <p className="footnote">
-          Это проверочный экран. Действия пока не сохраняются и сбросятся
-          после перезапуска.
+          Это проверочный экран. Тестовый счётчик пока не сохраняется
+          и сбрасывается после перезапуска.
         </p>
       </main>
     </div>
