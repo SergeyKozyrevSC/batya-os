@@ -52,4 +52,23 @@ export const initialActionTemplates: ActionTemplate[] = [
     name: 'Ноги / плечи',
     kind: 'fact',
   },
+  {
+    id: 'template-career-resumes',
+    sphereId: 'sphere-career',
+    name: 'Отправка резюме',
+    kind: 'quantity',
+    unit: 'шт.',
+  },
+  {
+    id: 'template-music-practice',
+    sphereId: 'sphere-music',
+    name: 'Практика на гитаре',
+    kind: 'duration',
+  },
+  {
+    id: 'template-learning-session',
+    sphereId: 'sphere-learning',
+    name: 'Обучение',
+    kind: 'duration',
+  },
 ];

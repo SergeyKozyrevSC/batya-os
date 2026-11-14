@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import type { ActionTemplate, Activity, Sphere } from '../types';
+import type {
+  ActionTemplate,
+  Activity,
+  ActivityResult,
+  Sphere,
+} from '../types';
 
 type ActivityFormProps = {
   spheres: Sphere[];
@@ -19,48 +24,76 @@ function getTodayDate(): string {
   return `${year}-${month}-${day}`;
 }
 
+function formatMinutesPreview(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  const readable =
+    hours === 0
+      ? `${remainingMinutes} мин`
+      : remainingMinutes === 0
+        ? `${hours} ч`
+        : `${hours} ч ${remainingMinutes} мин`;
+
+  const decimalHours = (minutes / 60).toLocaleString('ru-RU', {
+    maximumFractionDigits: 2,
+  });
+
+  return `${readable} · ${decimalHours} ч`;
+}
+
 export default function ActivityForm({
   spheres,
   templates,
   onSave,
   onCancel,
 }: ActivityFormProps) {
-  const firstFactTemplate = templates.find(
-    (template) =>
-      template.kind === 'fact' &&
-      spheres.some((sphere) => sphere.id === template.sphereId),
+  const firstTemplate = templates.find((template) =>
+    spheres.some((sphere) => sphere.id === template.sphereId),
   );
 
   const [sphereId, setSphereId] = useState(
-    firstFactTemplate?.sphereId ?? spheres[0]?.id ?? '',
+    firstTemplate?.sphereId ?? spheres[0]?.id ?? '',
   );
 
   const [templateId, setTemplateId] = useState(
-    firstFactTemplate?.id ?? '',
+    firstTemplate?.id ?? '',
   );
 
   const [date, setDate] = useState(getTodayDate);
+  const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
 
   const availableTemplates = templates.filter(
-    (template) =>
-      template.sphereId === sphereId && template.kind === 'fact',
+    (template) => template.sphereId === sphereId,
   );
 
   const selectedTemplate = availableTemplates.find(
     (template) => template.id === templateId,
   );
 
+  const numericAmount = Number(amount);
+
+  const isValidAmount =
+    /^[0-9]+$/.test(amount) &&
+    Number.isSafeInteger(numericAmount) &&
+    numericAmount > 0;
+
   function handleSphereChange(nextSphereId: string) {
     const nextTemplate = templates.find(
-      (template) =>
-        template.sphereId === nextSphereId &&
-        template.kind === 'fact',
+      (template) => template.sphereId === nextSphereId,
     );
 
     setSphereId(nextSphereId);
     setTemplateId(nextTemplate?.id ?? '');
+    setAmount('');
+    setError('');
+  }
+
+  function handleTemplateChange(nextTemplateId: string) {
+    setTemplateId(nextTemplateId);
+    setAmount('');
     setError('');
   }
 
@@ -78,13 +111,45 @@ export default function ActivityForm({
       return;
     }
 
+    let result: ActivityResult;
+
+    switch (selectedTemplate.kind) {
+      case 'fact':
+        result = {
+          kind: 'fact',
+        };
+        break;
+
+      case 'quantity':
+        if (!isValidAmount) {
+          setError('Количество должно быть целым числом больше нуля.');
+          return;
+        }
+
+        result = {
+          kind: 'quantity',
+          value: numericAmount,
+        };
+        break;
+
+      case 'duration':
+        if (!isValidAmount) {
+          setError('Введи целое количество минут больше нуля.');
+          return;
+        }
+
+        result = {
+          kind: 'duration',
+          minutes: numericAmount,
+        };
+        break;
+    }
+
     const activity: Activity = {
       id: crypto.randomUUID(),
       templateId: selectedTemplate.id,
       date,
-      result: {
-        kind: 'fact',
-      },
+      result,
       note: note.trim(),
     };
 
@@ -125,10 +190,9 @@ export default function ActivityForm({
           <select
             id="activity-template"
             value={templateId}
-            onChange={(event) => {
-              setTemplateId(event.target.value);
-              setError('');
-            }}
+            onChange={(event) =>
+              handleTemplateChange(event.target.value)
+            }
             disabled={availableTemplates.length === 0}
             required
           >
@@ -145,11 +209,78 @@ export default function ActivityForm({
 
           {availableTemplates.length === 0 && (
             <p className="form-hint">
-              В этой сфере пока нет шаблонов типа «факт».
+              В этой сфере пока нет шаблонов действий.
               Создание шаблонов добавим следующим шагом.
             </p>
           )}
         </div>
+
+        {selectedTemplate?.kind === 'fact' && (
+          <p className="form-hint">
+            Сохраняем факт выполненного действия.
+            Количество и время указывать не нужно.
+          </p>
+        )}
+
+        {selectedTemplate?.kind === 'quantity' && (
+          <div className="form-field">
+            <label htmlFor="activity-amount">
+              Количество — {selectedTemplate.unit}
+            </label>
+
+            <input
+              id="activity-amount"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]+"
+              value={amount}
+              onChange={(event) => {
+                setAmount(event.target.value);
+                setError('');
+              }}
+              placeholder="Например, 4"
+              aria-describedby="activity-amount-hint"
+              required
+            />
+
+            <p className="form-hint" id="activity-amount-hint">
+              Целое число больше нуля.
+            </p>
+          </div>
+        )}
+
+        {selectedTemplate?.kind === 'duration' && (
+          <div className="form-field">
+            <label htmlFor="activity-minutes">
+              Длительность в минутах
+            </label>
+
+            <input
+              id="activity-minutes"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]+"
+              value={amount}
+              onChange={(event) => {
+                setAmount(event.target.value);
+                setError('');
+              }}
+              placeholder="Например, 90"
+              aria-describedby="activity-duration-hint"
+              required
+            />
+
+            <p
+              className="form-hint"
+              id="activity-duration-hint"
+              aria-live="polite"
+            >
+              {isValidAmount
+                ? formatMinutesPreview(numericAmount)
+                : 'Введи целое количество минут больше нуля.'}
+            </p>
+          </div>
+        )}
 
         <div className="form-field">
           <label htmlFor="activity-date">Дата</label>
