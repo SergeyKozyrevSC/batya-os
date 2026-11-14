@@ -50,9 +50,22 @@ function formatActivityResult(
 export default function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [sphereFilter, setSphereFilter] = useState('all');
 
-  const sortedActivities = [...activities].sort((first, second) =>
-    second.date.localeCompare(first.date),
+  const filteredActivities = activities.filter((activity) => {
+    if (sphereFilter === 'all') {
+      return true;
+    }
+
+    const template = initialActionTemplates.find(
+      (item) => item.id === activity.templateId,
+    );
+
+    return template?.sphereId === sphereFilter;
+  });
+
+  const sortedActivities = [...filteredActivities].sort(
+    (first, second) => second.date.localeCompare(first.date),
   );
 
   const activityDates = [
@@ -162,11 +175,40 @@ export default function App() {
             </div>
           )}
 
-          {activities.length === 0 ? (
+          <div className="form-field activity-filter">
+            <label htmlFor="activity-sphere-filter">
+              Показать записи
+            </label>
+
+            <select
+              id="activity-sphere-filter"
+              value={sphereFilter}
+              onChange={(event) =>
+                setSphereFilter(event.target.value)
+              }
+            >
+              <option value="all">Все сферы</option>
+
+              {initialSpheres.map((sphere) => (
+                <option key={sphere.id} value={sphere.id}>
+                  {sphere.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {sortedActivities.length === 0 ? (
             <div className="empty-state">
-              <h3>Пока нет активностей</h3>
+              <h3>
+                {activities.length === 0
+                  ? 'Пока нет активностей'
+                  : 'В этой сфере пока нет активностей'}
+              </h3>
+
               <p>
-                Добавь первое действие — оно появится в журнале.
+                {activities.length === 0
+                  ? 'Добавь первое действие — оно появится в журнале.'
+                  : 'Выбери другую сферу или добавь новую запись.'}
               </p>
             </div>
           ) : (

@@ -407,3 +407,8 @@ button:disabled:hover {
   white-space: nowrap;
   border: 0;
 }
+
+.activity-filter {
+  max-width: 320px;
+  margin-bottom: 24px;
+}
