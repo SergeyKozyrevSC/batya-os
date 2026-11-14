@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import ActivityForm from './components/ActivityForm';
-import {
-  initialActionTemplates,
-  initialSpheres,
-} from './initial-data';
+import { initialActionTemplates, initialSpheres } from './initial-data';
 import type { Activity } from './types';
 
 const sphereDescriptions: Record<string, string> = {
@@ -40,16 +37,16 @@ function formatActivityResult(
         return `${minutes} мин`;
       }
 
-      return minutes === 0
-        ? `${hours} ч`
-        : `${hours} ч ${minutes} мин`;
+      return minutes === 0 ? `${hours} ч` : `${hours} ч ${minutes} мин`;
     }
   }
 }
 
 export default function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<Activity | undefined>(undefined);
+  const [editingActivity, setEditingActivity] = useState<Activity | undefined>(
+    undefined,
+  );
   const [activities, setActivities] = useState<Activity[]>([]);
   const [sphereFilter, setSphereFilter] = useState('all');
 
@@ -65,8 +62,8 @@ export default function App() {
     return template?.sphereId === sphereFilter;
   });
 
-  const sortedActivities = [...filteredActivities].sort(
-    (first, second) => second.date.localeCompare(first.date),
+  const sortedActivities = [...filteredActivities].sort((first, second) =>
+    second.date.localeCompare(first.date),
   );
 
   const activityDates = [
@@ -90,9 +87,7 @@ export default function App() {
 
   function handleSaveActivity(activity: Activity) {
     setActivities((current) => {
-      const alreadyExists = current.some(
-        (item) => item.id === activity.id,
-      );
+      const alreadyExists = current.some((item) => item.id === activity.id);
 
       if (alreadyExists) {
         return current.map((item) =>
@@ -105,6 +100,37 @@ export default function App() {
 
     handleCloseForm();
   }
+
+  function handleDeleteActivity(activityId: string) {
+    const activity = activities.find((item) => item.id === activityId);
+
+    if (!activity) {
+      return;
+    }
+
+    const template = initialActionTemplates.find(
+      (item) => item.id === activity.templateId,
+    );
+
+    const sphereName =
+      initialSpheres.find((item) => item.id === template?.sphereId)?.name ??
+      'эту активность';
+
+    const confirmed = window.confirm(
+      `Удалить активность «${
+        template?.name ?? 'Без названия'
+      }» из сферы «${sphereName}»?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setActivities((current) =>
+      current.filter((item) => item.id !== activityId),
+    );
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -115,15 +141,11 @@ export default function App() {
         </div>
 
         <div className="sidebar-section">
-          <span className="sidebar-label">
-            РАБОЧЕЕ ПРОСТРАНСТВО
-          </span>
+          <span className="sidebar-label">РАБОЧЕЕ ПРОСТРАНСТВО</span>
           <div className="current-page">Обзор</div>
         </div>
 
-        <p className="sidebar-footer">
-          Маленькие шаги. Реальный прогресс.
-        </p>
+        <p className="sidebar-footer">Маленькие шаги. Реальный прогресс.</p>
       </aside>
 
       <main className="main">
@@ -198,20 +220,17 @@ export default function App() {
                 activity={editingActivity}
                 onSave={handleSaveActivity}
                 onCancel={handleCloseForm}
-              />            </div>
+              />{' '}
+            </div>
           )}
 
           <div className="form-field activity-filter">
-            <label htmlFor="activity-sphere-filter">
-              Показать записи
-            </label>
+            <label htmlFor="activity-sphere-filter">Показать записи</label>
 
             <select
               id="activity-sphere-filter"
               value={sphereFilter}
-              onChange={(event) =>
-                setSphereFilter(event.target.value)
-              }
+              onChange={(event) => setSphereFilter(event.target.value)}
             >
               <option value="all">Все сферы</option>
 
@@ -255,22 +274,20 @@ export default function App() {
                           <th scope="col">Действие</th>
                           <th scope="col">Результат</th>
                           <th scope="col">Заметка</th>
-                          <th scope="col">Действия</th>                        </tr>
+                          <th scope="col">Действия</th>{' '}
+                        </tr>
                       </thead>
 
                       <tbody>
                         {sortedActivities
                           .filter((activity) => activity.date === date)
                           .map((activity) => {
-                            const template =
-                              initialActionTemplates.find(
-                                (item) =>
-                                  item.id === activity.templateId,
-                              );
+                            const template = initialActionTemplates.find(
+                              (item) => item.id === activity.templateId,
+                            );
 
                             const sphere = initialSpheres.find(
-                              (item) =>
-                                item.id === template?.sphereId,
+                              (item) => item.id === template?.sphereId,
                             );
 
                             const unit =
@@ -280,20 +297,14 @@ export default function App() {
 
                             return (
                               <tr key={activity.id}>
+                                <td>{sphere?.name ?? 'Неизвестная сфера'}</td>
+
                                 <td>
-                                  {sphere?.name ?? 'Неизвестная сфера'}
+                                  {template?.name ?? 'Неизвестное действие'}
                                 </td>
 
                                 <td>
-                                  {template?.name ??
-                                    'Неизвестное действие'}
-                                </td>
-
-                                <td>
-                                  {formatActivityResult(
-                                    activity.result,
-                                    unit,
-                                  )}
+                                  {formatActivityResult(activity.result, unit)}
                                 </td>
 
                                 <td className="activity-note">
@@ -304,17 +315,26 @@ export default function App() {
                                   <button
                                     type="button"
                                     className="button-secondary"
-                                    onClick={() =>
-                                      handleOpenEditForm(activity)
-                                    }
+                                    onClick={() => handleOpenEditForm(activity)}
                                     disabled={isFormOpen}
                                     aria-label={`Изменить: ${
                                       template?.name ?? 'активность'
-                                    } за ${formatActivityDate(
-                                      activity.date,
-                                    )}`}
+                                    } за ${formatActivityDate(activity.date)}`}
                                   >
                                     Изменить
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="button-danger"
+                                    onClick={() =>
+                                      handleDeleteActivity(activity.id)
+                                    }
+                                    disabled={isFormOpen}
+                                    aria-label={`Удалить: ${
+                                      template?.name ?? 'активность'
+                                    } за ${formatActivityDate(activity.date)}`}
+                                  >
+                                    Удалить
                                   </button>
                                 </td>
                               </tr>

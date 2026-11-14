@@ -1,5 +1,5 @@
 :root {
-  font-family: "Segoe UI", sans-serif;
+  font-family: 'Segoe UI', sans-serif;
   color: #edf0f7;
   background: #101116;
   font-synthesis: none;
@@ -420,4 +420,19 @@ button:disabled:hover {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #64748b;
+}
+
+.button-danger {
+  padding: 8px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button-danger:hover {
+  background-color: #fee2e2;
 }
