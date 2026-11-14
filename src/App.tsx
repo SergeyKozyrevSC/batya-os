@@ -49,6 +49,7 @@ function formatActivityResult(
 
 export default function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | undefined>(undefined);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [sphereFilter, setSphereFilter] = useState('all');
 
@@ -72,15 +73,43 @@ export default function App() {
     ...new Set(sortedActivities.map((activity) => activity.date)),
   ];
 
-  function handleSaveActivity(activity: Activity) {
-    setActivities((current) => [activity, ...current]);
-    setIsFormOpen(false);
+  function handleOpenCreateForm() {
+    setEditingActivity(undefined);
+    setIsFormOpen(true);
   }
 
+  function handleOpenEditForm(activity: Activity) {
+    setEditingActivity(activity);
+    setIsFormOpen(true);
+  }
+
+  function handleCloseForm() {
+    setIsFormOpen(false);
+    setEditingActivity(undefined);
+  }
+
+  function handleSaveActivity(activity: Activity) {
+    setActivities((current) => {
+      const alreadyExists = current.some(
+        (item) => item.id === activity.id,
+      );
+
+      if (alreadyExists) {
+        return current.map((item) =>
+          item.id === activity.id ? activity : item,
+        );
+      }
+
+      return [activity, ...current];
+    });
+
+    handleCloseForm();
+  }
   return (
     <div className="app">
       <aside className="sidebar">
         <div>
+          <p className="hero-eyebrow">ПРОСТРАНСТВО</p>
           <div className="brand">BatyaOS</div>
           <p className="brand-caption">by digital_batya</p>
         </div>
@@ -100,16 +129,12 @@ export default function App() {
       <main className="main">
         <header className="header">
           <div>
-            <p className="eyebrow">ТВОЁ ЛИЧНОЕ ПРОСТРАНСТВО</p>
             <h1>Привет, Сергей</h1>
-            <p className="subtitle">
-              Твои цели, действия и прогресс — в одном месте.
-            </p>
           </div>
         </header>
 
         <section className="section-heading">
-          <h2>Сферы жизни</h2>
+          <h2>Фокус</h2>
           <span>Всего сфер: {initialSpheres.length}</span>
         </section>
 
@@ -155,7 +180,7 @@ export default function App() {
 
             <button
               type="button"
-              onClick={() => setIsFormOpen(true)}
+              onClick={handleOpenCreateForm}
               disabled={isFormOpen}
               aria-expanded={isFormOpen}
               aria-controls="activity-form-container"
@@ -167,12 +192,13 @@ export default function App() {
           {isFormOpen && (
             <div id="activity-form-container">
               <ActivityForm
+                key={editingActivity?.id ?? 'new'}
                 spheres={initialSpheres}
                 templates={initialActionTemplates}
+                activity={editingActivity}
                 onSave={handleSaveActivity}
-                onCancel={() => setIsFormOpen(false)}
-              />
-            </div>
+                onCancel={handleCloseForm}
+              />            </div>
           )}
 
           <div className="form-field activity-filter">
@@ -196,7 +222,7 @@ export default function App() {
               ))}
             </select>
           </div>
-          
+
           {sortedActivities.length === 0 ? (
             <div className="empty-state">
               <h3>
@@ -229,7 +255,7 @@ export default function App() {
                           <th scope="col">Действие</th>
                           <th scope="col">Результат</th>
                           <th scope="col">Заметка</th>
-                        </tr>
+                          <th scope="col">Действия</th>                        </tr>
                       </thead>
 
                       <tbody>
@@ -272,6 +298,24 @@ export default function App() {
 
                                 <td className="activity-note">
                                   {activity.note || '—'}
+                                </td>
+
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="button-secondary"
+                                    onClick={() =>
+                                      handleOpenEditForm(activity)
+                                    }
+                                    disabled={isFormOpen}
+                                    aria-label={`Изменить: ${
+                                      template?.name ?? 'активность'
+                                    } за ${formatActivityDate(
+                                      activity.date,
+                                    )}`}
+                                  >
+                                    Изменить
+                                  </button>
                                 </td>
                               </tr>
                             );

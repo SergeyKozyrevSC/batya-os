@@ -412,3 +412,12 @@ button:disabled:hover {
   max-width: 320px;
   margin-bottom: 24px;
 }
+
+.hero-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #64748b;
+}
