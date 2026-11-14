@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ActivityForm from './components/ActivityForm';
 import { initialActionTemplates, initialSpheres } from './initial-data';
 import type { Activity } from './types';
+
+const ACTIVITIES_STORAGE_KEY = 'batya-os.activities';
 
 const sphereDescriptions: Record<string, string> = {
   'sphere-career': 'Резюме и подготовка к собеседованиям',
@@ -47,7 +49,35 @@ export default function App() {
   const [editingActivity, setEditingActivity] = useState<Activity | undefined>(
     undefined,
   );
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<Activity[]>(() => {
+    try {
+      const storedActivities = window.localStorage.getItem(
+        ACTIVITIES_STORAGE_KEY,
+      );
+
+      if (!storedActivities) {
+        return [];
+      }
+
+      const parsedActivities = JSON.parse(storedActivities) as Activity[];
+
+      if (!Array.isArray(parsedActivities)) {
+        return [];
+      }
+
+      return parsedActivities;
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      ACTIVITIES_STORAGE_KEY,
+      JSON.stringify(activities),
+    );
+  }, [activities]);
+
   const [sphereFilter, setSphereFilter] = useState('all');
 
   const filteredActivities = activities.filter((activity) => {
