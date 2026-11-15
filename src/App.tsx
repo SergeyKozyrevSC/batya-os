@@ -97,6 +97,10 @@ export default function App() {
     window.localStorage.setItem(SPHERE_FILTER_STORAGE_KEY, sphereFilter);
   }, [sphereFilter]);
 
+  const [activityToDelete, setActivityToDelete] = useState<
+    Activity | undefined
+  >(undefined);
+
   const filteredActivities = activities.filter((activity) => {
     if (sphereFilter === 'all') {
       return true;
@@ -155,27 +159,23 @@ export default function App() {
       return;
     }
 
-    const template = initialActionTemplates.find(
-      (item) => item.id === activity.templateId,
-    );
+    setActivityToDelete(activity);
+  }
 
-    const sphereName =
-      initialSpheres.find((item) => item.id === template?.sphereId)?.name ??
-      'эту активность';
-
-    const confirmed = window.confirm(
-      `Удалить активность «${
-        template?.name ?? 'Без названия'
-      }» из сферы «${sphereName}»?`,
-    );
-
-    if (!confirmed) {
+  function confirmDeleteActivity() {
+    if (!activityToDelete) {
       return;
     }
 
     setActivities((current) =>
-      current.filter((item) => item.id !== activityId),
+      current.filter((item) => item.id !== activityToDelete.id),
     );
+
+    setActivityToDelete(undefined);
+  }
+
+  function cancelDeleteActivity() {
+    setActivityToDelete(undefined);
   }
 
   return (
@@ -399,6 +399,38 @@ export default function App() {
             Пока записи хранятся только до перезапуска приложения.
           </p>
         </section>
+        {activityToDelete && (
+          <div className="modal-backdrop" role="presentation">
+            <div
+              className="modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-activity-title"
+            >
+              <h2 id="delete-activity-title">Удалить активность?</h2>
+
+              <p>Запись будет удалена без возможности восстановить её.</p>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={cancelDeleteActivity}
+                >
+                  Отмена
+                </button>
+
+                <button
+                  type="button"
+                  className="button-danger"
+                  onClick={confirmDeleteActivity}
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
