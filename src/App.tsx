@@ -4,6 +4,7 @@ import { initialActionTemplates, initialSpheres } from './initial-data';
 import type { Activity } from './types';
 
 const ACTIVITIES_STORAGE_KEY = 'batya-os.activities';
+const SPHERE_FILTER_STORAGE_KEY = 'batya-os.sphereFilter';
 
 const sphereDescriptions: Record<string, string> = {
   'sphere-career': 'Резюме и подготовка к собеседованиям',
@@ -78,7 +79,23 @@ export default function App() {
     );
   }, [activities]);
 
-  const [sphereFilter, setSphereFilter] = useState('all');
+  const [sphereFilter, setSphereFilter] = useState(() => {
+    const storedFilter = window.localStorage.getItem(SPHERE_FILTER_STORAGE_KEY);
+
+    if (!storedFilter) {
+      return 'all';
+    }
+
+    const isValidFilter =
+      storedFilter === 'all' ||
+      initialSpheres.some((sphere) => sphere.id === storedFilter);
+
+    return isValidFilter ? storedFilter : 'all';
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(SPHERE_FILTER_STORAGE_KEY, sphereFilter);
+  }, [sphereFilter]);
 
   const filteredActivities = activities.filter((activity) => {
     if (sphereFilter === 'all') {
