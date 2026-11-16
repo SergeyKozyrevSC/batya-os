@@ -18,7 +18,7 @@ const createWindow = () => {
     },
   });
 
-  mainWindow.maximize();  // and load the index.html of the app.
+  mainWindow.maximize(); // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -26,7 +26,6 @@ const createWindow = () => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
-
 };
 
 // This method will be called when Electron has finished

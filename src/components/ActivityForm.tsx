@@ -10,6 +10,7 @@ import type {
 type ActivityFormProps = {
   spheres: Sphere[];
   templates: ActionTemplate[];
+  activity?: Activity;
   onSave: (activity: Activity) => void;
   onCancel: () => void;
 };
@@ -45,24 +46,38 @@ function formatMinutesPreview(minutes: number): string {
 export default function ActivityForm({
   spheres,
   templates,
+  activity,
   onSave,
   onCancel,
 }: ActivityFormProps) {
+  const existingTemplate = activity
+    ? templates.find((template) => template.id === activity.templateId)
+    : undefined;
+
   const firstTemplate = templates.find((template) =>
     spheres.some((sphere) => sphere.id === template.sphereId),
   );
 
+  const startingTemplate = existingTemplate ?? firstTemplate;
+
+  let startingAmount = '';
+
+  if (activity?.result.kind === 'quantity') {
+    startingAmount = String(activity.result.value);
+  } else if (activity?.result.kind === 'duration') {
+    startingAmount = String(activity.result.minutes);
+  }
+
   const [sphereId, setSphereId] = useState(
-    firstTemplate?.sphereId ?? spheres[0]?.id ?? '',
+    startingTemplate?.sphereId ?? spheres[0]?.id ?? '',
   );
 
-  const [templateId, setTemplateId] = useState(
-    firstTemplate?.id ?? '',
-  );
+  const [templateId, setTemplateId] = useState(startingTemplate?.id ?? '');
 
-  const [date, setDate] = useState(getTodayDate);
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
+  const [date, setDate] = useState(() => activity?.date ?? getTodayDate());
+
+  const [amount, setAmount] = useState(startingAmount);
+  const [note, setNote] = useState(activity?.note ?? '');
   const [error, setError] = useState('');
 
   const availableTemplates = templates.filter(
@@ -145,20 +160,22 @@ export default function ActivityForm({
         break;
     }
 
-    const activity: Activity = {
-      id: crypto.randomUUID(),
+    const savedActivity: Activity = {
+      id: activity?.id ?? crypto.randomUUID(),
       templateId: selectedTemplate.id,
       date,
       result,
       note: note.trim(),
     };
 
-    onSave(activity);
+    onSave(savedActivity);
   }
 
   return (
     <section className="activity-form-panel">
-      <h2 id="activity-form-heading">Добавить активность</h2>
+      <h2 id="activity-form-heading">
+        {activity ? 'Изменить активность' : 'Добавить активность'}
+      </h2>
 
       <form
         className="activity-form"
@@ -171,9 +188,7 @@ export default function ActivityForm({
           <select
             id="activity-sphere"
             value={sphereId}
-            onChange={(event) =>
-              handleSphereChange(event.target.value)
-            }
+            onChange={(event) => handleSphereChange(event.target.value)}
             required
           >
             {spheres.map((sphere) => (
@@ -190,9 +205,7 @@ export default function ActivityForm({
           <select
             id="activity-template"
             value={templateId}
-            onChange={(event) =>
-              handleTemplateChange(event.target.value)
-            }
+            onChange={(event) => handleTemplateChange(event.target.value)}
             disabled={availableTemplates.length === 0}
             required
           >
@@ -209,16 +222,16 @@ export default function ActivityForm({
 
           {availableTemplates.length === 0 && (
             <p className="form-hint">
-              В этой сфере пока нет шаблонов действий.
-              Создание шаблонов добавим следующим шагом.
+              В этой сфере пока нет шаблонов действий. Создание шаблонов добавим
+              следующим шагом.
             </p>
           )}
         </div>
 
         {selectedTemplate?.kind === 'fact' && (
           <p className="form-hint">
-            Сохраняем факт выполненного действия.
-            Количество и время указывать не нужно.
+            Сохраняем факт выполненного действия. Количество и время указывать
+            не нужно.
           </p>
         )}
 
@@ -251,9 +264,7 @@ export default function ActivityForm({
 
         {selectedTemplate?.kind === 'duration' && (
           <div className="form-field">
-            <label htmlFor="activity-minutes">
-              Длительность в минутах
-            </label>
+            <label htmlFor="activity-minutes">Длительность в минутах</label>
 
             <input
               id="activity-minutes"
@@ -299,9 +310,7 @@ export default function ActivityForm({
         </div>
 
         <div className="form-field">
-          <label htmlFor="activity-note">
-            Заметка — необязательно
-          </label>
+          <label htmlFor="activity-note">Заметка — необязательно</label>
 
           <textarea
             id="activity-note"
@@ -319,18 +328,11 @@ export default function ActivityForm({
         )}
 
         <div className="form-actions">
-          <button
-            type="submit"
-            disabled={!selectedTemplate}
-          >
-            Сохранить
+          <button type="submit" disabled={!selectedTemplate}>
+            {activity ? 'Сохранить изменения' : 'Сохранить'}
           </button>
 
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={onCancel}
-          >
+          <button type="button" className="button-secondary" onClick={onCancel}>
             Отмена
           </button>
         </div>
