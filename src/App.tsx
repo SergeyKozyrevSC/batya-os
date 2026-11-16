@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ActivityForm from './components/ActivityForm';
 import { initialActionTemplates, initialSpheres } from './initial-data';
 import type { Activity } from './types';
@@ -100,6 +100,46 @@ export default function App() {
   const [activityToDelete, setActivityToDelete] = useState<
     Activity | undefined
   >(undefined);
+
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!activityToDelete) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        cancelDeleteActivity();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activityToDelete]);
+
+  useEffect(() => {
+    if (!activityToDelete) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [activityToDelete]);
+
+  useEffect(() => {
+    if (activityToDelete) {
+      cancelButtonRef.current?.focus();
+    }
+  }, [activityToDelete]);
 
   const filteredActivities = activities.filter((activity) => {
     if (sphereFilter === 'all') {
@@ -409,10 +449,10 @@ export default function App() {
             >
               <h2 id="delete-activity-title">Удалить активность?</h2>
 
-              <p>Запись будет удалена без возможности восстановить её.</p>
-
+              <p> Запись будет удалена без возможности восстановить её </p>
               <div className="modal-actions">
                 <button
+                  ref={cancelButtonRef}
                   type="button"
                   className="button-secondary"
                   onClick={cancelDeleteActivity}
