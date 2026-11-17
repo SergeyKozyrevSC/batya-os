@@ -7,10 +7,11 @@ import {
 } from 'react';
 import ActivityForm from './components/ActivityForm';
 import { initialActionTemplates, initialSpheres } from './initial-data';
-import type { Activity, Task } from './types';
+import type { Activity, Project, Task } from './types';
 
 const ACTIVITIES_STORAGE_KEY = 'batya-os.activities';
 const TASKS_STORAGE_KEY = 'batya-os.tasks';
+const PROJECTS_STORAGE_KEY = 'batya-os.projects';
 function getTodayDate(): string {
   const today = new Date();
 
@@ -145,6 +146,45 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
   }, [tasks]);
+
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+
+  const [projects, setProjects] = useState<Project[]>(() => {
+    try {
+      const storedProjects = window.localStorage.getItem(PROJECTS_STORAGE_KEY);
+
+      if (!storedProjects) {
+        return [];
+      }
+
+      const parsedProjects: unknown = JSON.parse(storedProjects);
+
+      if (!Array.isArray(parsedProjects)) {
+        return [];
+      }
+
+      return parsedProjects.filter((item: unknown): item is Project => {
+        if (typeof item !== 'object' || item === null) {
+          return false;
+        }
+
+        const candidate = item as Partial<Project>;
+
+        return (
+          typeof candidate.id === 'string' &&
+          candidate.id.trim() !== '' &&
+          typeof candidate.title === 'string' &&
+          candidate.title.trim() !== ''
+        );
+      });
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
+  }, [projects]);
 
   const todayDate = getTodayDate();
 
@@ -295,6 +335,24 @@ export default function App() {
     link.click();
 
     URL.revokeObjectURL(url);
+  }
+
+  function handleAddProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const title = newProjectTitle.trim();
+
+    if (!title) {
+      return;
+    }
+
+    const newProject: Project = {
+      id: crypto.randomUUID(),
+      title,
+    };
+
+    setProjects((current) => [newProject, ...current]);
+    setNewProjectTitle('');
   }
 
   function handleAddTask(event: FormEvent<HTMLFormElement>) {
@@ -715,6 +773,45 @@ export default function App() {
               ))}
             </div>
           )}
+
+          <section
+            className="project-section"
+            aria-labelledby="projects-heading"
+          >
+            <h2 id="projects-heading">Проекты</h2>
+
+            <form className="task-form" onSubmit={handleAddProject}>
+              <div className="form-field">
+                <label htmlFor="new-project-title">Новый проект</label>
+
+                <input
+                  id="new-project-title"
+                  type="text"
+                  value={newProjectTitle}
+                  onChange={(event) => setNewProjectTitle(event.target.value)}
+                  placeholder="Например: BatyaOS"
+                  required
+                />
+              </div>
+
+              <button type="submit" disabled={!newProjectTitle.trim()}>
+                Создать проект
+              </button>
+            </form>
+
+            {projects.length === 0 ? (
+              <p className="empty-state">Проектов пока нет. Создай первый.</p>
+            ) : (
+              <ul className="project-list">
+                {projects.map((project) => (
+                  <li className="project-card" key={project.id}>
+                    <h3>{project.title}</h3>
+                    <p className="form-hint">Нет задач</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="task-section">
             <h2>Личный чеклист</h2>
