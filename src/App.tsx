@@ -701,17 +701,19 @@ export default function App() {
               </p>
             </div>
 
-            <form className="task-form" onSubmit={handleAddTask}>
-              <label htmlFor="new-task-title">Новая задача</label>
+                        <form className="task-form" onSubmit={handleAddTask}>
+              <div className="form-field">
+                <label htmlFor="new-task-title">Новая задача</label>
 
-              <input
-                id="new-task-title"
-                type="text"
-                value={newTaskTitle}
-                onChange={(event) => setNewTaskTitle(event.target.value)}
-                placeholder="Например: разобрать почту"
-                required
-              />
+                <input
+                  id="new-task-title"
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(event) => setNewTaskTitle(event.target.value)}
+                  placeholder="Например: разобрать почту"
+                  required
+                />
+              </div>
 
               <button type="submit" className="button-primary">
                 Добавить
