@@ -111,7 +111,7 @@ export default function App() {
   >(undefined);
 
   const [importError, setImportError] = useState('');
-
+  const [importedCount, setImportedCount] = useState(0);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -327,6 +327,8 @@ export default function App() {
             (item: Activity) => !currentIds.has(item.id),
           );
 
+          setImportedCount(newActivities.length);
+
           return [...newActivities, ...current];
         });
 
@@ -440,6 +442,12 @@ export default function App() {
             {importError && (
               <p className="form-error" role="alert">
                 {importError}
+              </p>
+            )}
+
+            {importedCount > 0 && !importError && (
+              <p className="form-success" role="status">
+                Импортировано новых записей: {importedCount}
               </p>
             )}
           </div>

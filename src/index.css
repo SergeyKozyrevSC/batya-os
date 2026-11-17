@@ -497,3 +497,9 @@ button:disabled:hover {
   color: #b91c1c;
   font-size: 14px;
 }
+
+.form-success {
+  margin: 12px 0 0;
+  color: #15803d;
+  font-size: 14px;
+}
