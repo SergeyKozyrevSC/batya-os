@@ -144,6 +144,12 @@ export default function App() {
     window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
   }, [tasks]);
 
+  const todayDate = getTodayDate();
+
+  const completedTodayCount = tasks.filter(
+    (task) => task.isCompleted && task.completedAt === todayDate,
+  ).length;
+
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -672,6 +678,10 @@ export default function App() {
           <section className="task-section">
             <h2>Личный чеклист</h2>
 
+            <p className="task-summary" role="status">
+              Выполнено сегодня: {completedTodayCount}
+            </p>
+
             <form className="task-form" onSubmit={handleAddTask}>
               <label htmlFor="new-task-title">Новая задача</label>
 
@@ -724,7 +734,7 @@ export default function App() {
             )}
           </section>
           <p className="footnote">
-            Пока записи хранятся только до перезапуска приложения.
+            Активности и задачи сохраняются локально на этом устройстве.
           </p>
         </section>
         {activityToDelete && (

@@ -552,3 +552,9 @@ button:disabled:hover {
   align-items: center;
   gap: 12px;
 }
+
+.task-summary {
+  margin: 0 0 20px;
+  color: #c4b5fd;
+  font-size: 14px;
+}
