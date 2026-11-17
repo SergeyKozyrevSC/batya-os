@@ -195,6 +195,10 @@ export default function App() {
   }, [projects]);
 
   const [newProjectTaskTitle, setNewProjectTaskTitle] = useState('');
+  const [editingProjectTaskId, setEditingProjectTaskId] =
+    useState<EntityId | null>(null);
+
+  const [editingProjectTaskTitle, setEditingProjectTaskTitle] = useState('');
 
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>(() => {
     try {
@@ -469,6 +473,43 @@ export default function App() {
     );
 
     setProjectPendingDeletion(null);
+  }
+
+  function handleStartProjectTaskEditing(
+    taskId: EntityId,
+    currentTitle: string,
+  ) {
+    setEditingProjectTaskId(taskId);
+    setEditingProjectTaskTitle(currentTitle);
+  }
+
+  function handleSaveProjectTaskTitle(taskId: EntityId) {
+    const title = editingProjectTaskTitle.trim();
+
+    if (!title) {
+      return;
+    }
+
+    setProjectTasks((current) =>
+      current.map((task) => {
+        if (task.id !== taskId) {
+          return task;
+        }
+
+        return {
+          ...task,
+          title,
+        };
+      }),
+    );
+
+    setEditingProjectTaskId(null);
+    setEditingProjectTaskTitle('');
+  }
+
+  function handleCancelProjectTaskEditing() {
+    setEditingProjectTaskId(null);
+    setEditingProjectTaskTitle('');
   }
 
   function handleAddProjectTask(
@@ -1076,17 +1117,75 @@ export default function App() {
                               }
                               key={task.id}
                             >
-                              <label className="task-label">
-                                <input
-                                  type="checkbox"
-                                  checked={task.isCompleted}
-                                  onChange={() =>
-                                    handleToggleProjectTask(task.id)
-                                  }
-                                />
+                              {editingProjectTaskId === task.id ? (
+                                <div className="task-editing">
+                                  <div className="form-field">
+                                    <label
+                                      htmlFor={`project-task-title-${task.id}`}
+                                    >
+                                      Название подзадачи
+                                    </label>
 
-                                <span className="task-title">{task.title}</span>
-                              </label>
+                                    <input
+                                      id={`project-task-title-${task.id}`}
+                                      type="text"
+                                      value={editingProjectTaskTitle}
+                                      onChange={(event) =>
+                                        setEditingProjectTaskTitle(
+                                          event.target.value,
+                                        )
+                                      }
+                                      required
+                                    />
+                                  </div>
+
+                                  <div className="task-editing-actions">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleSaveProjectTaskTitle(task.id)
+                                      }
+                                    >
+                                      Сохранить
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={handleCancelProjectTaskEditing}
+                                    >
+                                      Отмена
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <label className="task-label">
+                                    <input
+                                      type="checkbox"
+                                      checked={task.isCompleted}
+                                      onChange={() =>
+                                        handleToggleProjectTask(task.id)
+                                      }
+                                    />
+
+                                    <span className="task-title">
+                                      {task.title}
+                                    </span>
+                                  </label>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleStartProjectTaskEditing(
+                                        task.id,
+                                        task.title,
+                                      )
+                                    }
+                                  >
+                                    Изменить
+                                  </button>
+                                </>
+                              )}
 
                               <button
                                 type="button"

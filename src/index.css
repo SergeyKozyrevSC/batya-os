@@ -655,3 +655,14 @@ button:disabled:hover {
   display: flex;
   gap: 8px;
 }
+
+.task-editing {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.task-editing-actions {
+  display: flex;
+  gap: 8px;
+}
