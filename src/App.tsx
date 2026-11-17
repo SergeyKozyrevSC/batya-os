@@ -512,6 +512,25 @@ export default function App() {
     setEditingProjectTaskTitle('');
   }
 
+  function getProjectProgress(projectId: EntityId) {
+    const projectTasksForProject = projectTasks.filter(
+      (task) => task.projectId === projectId,
+    );
+
+    const completedCount = projectTasksForProject.filter(
+      (task) => task.isCompleted,
+    ).length;
+
+    const totalCount = projectTasksForProject.length;
+
+    return {
+      completedCount,
+      totalCount,
+      percent:
+        totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100),
+    };
+  }
+
   function handleAddProjectTask(
     event: FormEvent<HTMLFormElement>,
     projectId: EntityId,
@@ -1043,6 +1062,12 @@ export default function App() {
                     ) : (
                       <div className="project-header">
                         <h3>{project.title}</h3>
+                        <p className="project-progress">
+                          Выполнено{' '}
+                          {getProjectProgress(project.id).completedCount} из{' '}
+                          {getProjectProgress(project.id).totalCount} —{' '}
+                          {getProjectProgress(project.id).percent}%
+                        </p>
 
                         <div className="project-actions">
                           <button

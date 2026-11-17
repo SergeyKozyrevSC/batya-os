@@ -666,3 +666,9 @@ button:disabled:hover {
   display: flex;
   gap: 8px;
 }
+
+.project-progress {
+  margin: 0 0 16px;
+  color: #9aa0b5;
+  font-size: 14px;
+}
