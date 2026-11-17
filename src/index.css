@@ -650,3 +650,8 @@ button:disabled:hover {
   display: flex;
   gap: 8px;
 }
+
+.project-actions {
+  display: flex;
+  gap: 8px;
+}

@@ -154,6 +154,8 @@ export default function App() {
   );
 
   const [editingProjectTitle, setEditingProjectTitle] = useState('');
+  const [projectPendingDeletion, setProjectPendingDeletion] =
+    useState<Project | null>(null);
 
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
@@ -445,6 +447,28 @@ export default function App() {
   function handleCancelProjectEditing() {
     setEditingProjectId(null);
     setEditingProjectTitle('');
+  }
+
+  function handleRequestProjectDeletion(project: Project) {
+    setProjectPendingDeletion(project);
+  }
+
+  function handleConfirmProjectDeletion() {
+    if (!projectPendingDeletion) {
+      return;
+    }
+
+    const projectId = projectPendingDeletion.id;
+
+    setProjects((current) =>
+      current.filter((project) => project.id !== projectId),
+    );
+
+    setProjectTasks((current) =>
+      current.filter((task) => task.projectId !== projectId),
+    );
+
+    setProjectPendingDeletion(null);
   }
 
   function handleAddProjectTask(
@@ -979,14 +1003,28 @@ export default function App() {
                       <div className="project-header">
                         <h3>{project.title}</h3>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleStartProjectEditing(project.id, project.title)
-                          }
-                        >
-                          Изменить
-                        </button>
+                        <div className="project-actions">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleStartProjectEditing(
+                                project.id,
+                                project.title,
+                              )
+                            }
+                          >
+                            Изменить
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRequestProjectDeletion(project)
+                            }
+                          >
+                            Удалить
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -1242,6 +1280,37 @@ export default function App() {
                   onClick={confirmDeleteActivity}
                 >
                   Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {projectPendingDeletion && (
+          <div className="modal-backdrop" role="presentation">
+            <div
+              className="modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-project-title"
+            >
+              <h2 id="delete-project-title">Удалить проект?</h2>
+
+              <p>
+                Проект «{projectPendingDeletion.title}» и все его подзадачи
+                будут удалены. Действие нельзя отменить.
+              </p>
+
+              <div className="modal-actions">
+                <button type="button" onClick={handleConfirmProjectDeletion}>
+                  Удалить
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProjectPendingDeletion(null)}
+                >
+                  Отмена
                 </button>
               </div>
             </div>
