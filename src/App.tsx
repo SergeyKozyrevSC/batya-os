@@ -336,6 +336,10 @@ export default function App() {
     setTasks((current) => current.filter((task) => task.id !== taskId));
   }
 
+  function handleClearCompletedTasks() {
+    setTasks((current) => current.filter((task) => !task.isCompleted));
+  }
+
   function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
@@ -681,6 +685,21 @@ export default function App() {
             <p className="task-summary" role="status">
               Выполнено сегодня: {completedTodayCount}
             </p>
+
+            <div className="task-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={handleClearCompletedTasks}
+                disabled={!tasks.some((task) => task.isCompleted)}
+              >
+                Очистить выполненные
+              </button>
+
+              <p className="form-hint">
+                Удаляет все выполненные задачи без возможности восстановления.
+              </p>
+            </div>
 
             <form className="task-form" onSubmit={handleAddTask}>
               <label htmlFor="new-task-title">Новая задача</label>
