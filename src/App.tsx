@@ -269,14 +269,55 @@ export default function App() {
         }
 
         const importedActivities = parsed.activities.filter(
-          (item: unknown): item is Activity =>
-            typeof item === 'object' &&
-            item !== null &&
-            'id' in item &&
-            'templateId' in item &&
-            'date' in item &&
-            'result' in item &&
-            'note' in item,
+          (item: unknown): item is Activity => {
+            if (typeof item !== 'object' || item === null) {
+              return false;
+            }
+
+            const candidate = item as Partial<Activity>;
+
+            if (
+              typeof candidate.id !== 'string' ||
+              candidate.id.trim() === '' ||
+              typeof candidate.templateId !== 'string' ||
+              candidate.templateId.trim() === '' ||
+              typeof candidate.date !== 'string' ||
+              !/^\d{4}-\d{2}-\d{2}$/.test(candidate.date) ||
+              typeof candidate.note !== 'string'
+            ) {
+              return false;
+            }
+
+            const result = candidate.result;
+
+            if (typeof result !== 'object' || result === null) {
+              return false;
+            }
+
+            if (result.kind === 'fact') {
+              return true;
+            }
+
+            if (
+              result.kind === 'quantity' &&
+              typeof result.value === 'number' &&
+              Number.isInteger(result.value) &&
+              result.value > 0
+            ) {
+              return true;
+            }
+
+            if (
+              result.kind === 'duration' &&
+              typeof result.minutes === 'number' &&
+              Number.isInteger(result.minutes) &&
+              result.minutes > 0
+            ) {
+              return true;
+            }
+
+            return false;
+          },
         );
 
         setActivities((current) => {
