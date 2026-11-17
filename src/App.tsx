@@ -120,6 +120,8 @@ export default function App() {
   const [importError, setImportError] = useState('');
   const [importedCount, setImportedCount] = useState(0);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState('');
   const [tasks, setTasks] = useState<Task[]>(() => {
     try {
       const storedTasks = window.localStorage.getItem(TASKS_STORAGE_KEY);
@@ -330,6 +332,34 @@ export default function App() {
         };
       }),
     );
+  }
+
+  function handleStartEditTask(task: Task) {
+    setEditingTaskId(task.id);
+    setEditingTaskTitle(task.title);
+  }
+
+  function handleCancelEditTask() {
+    setEditingTaskId(null);
+    setEditingTaskTitle('');
+  }
+
+  function handleSaveTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const title = editingTaskTitle.trim();
+
+    if (!editingTaskId || !title) {
+      return;
+    }
+
+    setTasks((current) =>
+      current.map((task) =>
+        task.id === editingTaskId ? { ...task, title } : task,
+      ),
+    );
+
+    handleCancelEditTask();
   }
 
   function handleDeleteTask(taskId: string) {
@@ -691,7 +721,10 @@ export default function App() {
                 type="button"
                 className="button-secondary"
                 onClick={handleClearCompletedTasks}
-                disabled={!tasks.some((task) => task.isCompleted)}
+                disabled={
+                  editingTaskId !== null ||
+                  !tasks.some((task) => task.isCompleted)
+                }
               >
                 Очистить выполненные
               </button>
@@ -701,7 +734,7 @@ export default function App() {
               </p>
             </div>
 
-                        <form className="task-form" onSubmit={handleAddTask}>
+            <form className="task-form" onSubmit={handleAddTask}>
               <div className="form-field">
                 <label htmlFor="new-task-title">Новая задача</label>
 
@@ -731,24 +764,84 @@ export default function App() {
                     }
                     key={task.id}
                   >
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={task.isCompleted}
-                        onChange={() => handleToggleTask(task.id)}
-                      />
+                    {editingTaskId === task.id ? (
+                      <form
+                        className="task-edit-form"
+                        onSubmit={handleSaveTask}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            handleCancelEditTask();
+                          }
+                        }}
+                      >
+                        <div className="form-field">
+                          <label htmlFor={`edit-task-${task.id}`}>
+                            Название задачи
+                          </label>
 
-                      <span>{task.title}</span>
-                    </label>
+                          <input
+                            id={`edit-task-${task.id}`}
+                            type="text"
+                            value={editingTaskTitle}
+                            onChange={(event) =>
+                              setEditingTaskTitle(event.target.value)
+                            }
+                            required
+                          />
+                        </div>
 
-                    <button
-                      type="button"
-                      className="button-danger"
-                      onClick={() => handleDeleteTask(task.id)}
-                      aria-label={`Удалить задачу: ${task.title}`}
-                    >
-                      Удалить
-                    </button>
+                        <div className="task-item-actions">
+                          <button
+                            type="submit"
+                            disabled={!editingTaskTitle.trim()}
+                          >
+                            Сохранить
+                          </button>
+
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            onClick={handleCancelEditTask}
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={task.isCompleted}
+                            onChange={() => handleToggleTask(task.id)}
+                          />
+
+                          <span>{task.title}</span>
+                        </label>
+
+                        <div className="task-item-actions">
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            onClick={() => handleStartEditTask(task)}
+                            disabled={editingTaskId !== null}
+                            aria-label={`Изменить задачу: ${task.title}`}
+                          >
+                            Изменить
+                          </button>
+
+                          <button
+                            type="button"
+                            className="button-danger"
+                            onClick={() => handleDeleteTask(task.id)}
+                            aria-label={`Удалить задачу: ${task.title}`}
+                          >
+                            Удалить
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
