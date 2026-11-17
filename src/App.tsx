@@ -152,6 +152,13 @@ export default function App() {
     (task) => task.isCompleted && task.completedAt === todayDate,
   ).length;
 
+  const completedTasksCount = tasks.filter((task) => task.isCompleted).length;
+
+  const taskCompletionPercent =
+    tasks.length === 0
+      ? 0
+      : Math.round((completedTasksCount / tasks.length) * 100);
+
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -711,6 +718,12 @@ export default function App() {
 
           <section className="task-section">
             <h2>Личный чеклист</h2>
+
+            <p className="task-summary" role="status">
+              {tasks.length === 0
+                ? 'Общий прогресс: пока нет задач'
+                : `Всего выполнено: ${completedTasksCount} из ${tasks.length} · ${taskCompletionPercent}%`}
+            </p>
 
             <p className="task-summary" role="status">
               Выполнено сегодня: {completedTodayCount}
