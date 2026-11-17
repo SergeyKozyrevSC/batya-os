@@ -53,3 +53,16 @@ export type Task = {
   isCompleted: boolean;
   completedAt: ActivityDate | null;
 };
+
+export type Project = {
+  id: EntityId;
+  title: string;
+};
+
+export type ProjectTask = {
+  id: EntityId;
+  projectId: EntityId;
+  title: string;
+  isCompleted: boolean;
+  completedAt: ActivityDate | null;
+};
