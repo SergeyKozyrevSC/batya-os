@@ -1,9 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import ActivityForm from './components/ActivityForm';
 import { initialActionTemplates, initialSpheres } from './initial-data';
 import type { Activity } from './types';
 
 const ACTIVITIES_STORAGE_KEY = 'batya-os.activities';
+function getTodayDate(): string {
+  const today = new Date();
+
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
 const SPHERE_FILTER_STORAGE_KEY = 'batya-os.sphereFilter';
 
 const sphereDescriptions: Record<string, string> = {
@@ -100,6 +109,8 @@ export default function App() {
   const [activityToDelete, setActivityToDelete] = useState<
     Activity | undefined
   >(undefined);
+
+  const [importError, setImportError] = useState('');
 
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -218,6 +229,77 @@ export default function App() {
     setActivityToDelete(undefined);
   }
 
+  function exportActivities() {
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      activities,
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json',
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `batya-os-activities-${getTodayDate()}.json`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+
+        if (!parsed || !Array.isArray(parsed.activities)) {
+          setImportError('Файл не содержит список активностей.');
+          return;
+        }
+
+        const importedActivities = parsed.activities.filter(
+          (item: unknown): item is Activity =>
+            typeof item === 'object' &&
+            item !== null &&
+            'id' in item &&
+            'templateId' in item &&
+            'date' in item &&
+            'result' in item &&
+            'note' in item,
+        );
+
+        setActivities((current) => {
+          const currentIds = new Set(current.map((item) => item.id));
+
+          const newActivities = importedActivities.filter(
+            (item: Activity) => !currentIds.has(item.id),
+          );
+
+          return [...newActivities, ...current];
+        });
+
+        setImportError('');
+      } catch {
+        setImportError('Не удалось прочитать JSON-файл.');
+      }
+    };
+
+    reader.readAsText(file);
+
+    event.target.value = '';
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -296,6 +378,29 @@ export default function App() {
             >
               + Добавить активность
             </button>
+
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={exportActivities}
+            >
+              Экспорт JSON
+            </button>
+
+            <label className="button-secondary import-button">
+              Импорт JSON
+              <input
+                type="file"
+                accept="application/json"
+                onChange={handleImportFile}
+              />
+            </label>
+
+            {importError && (
+              <p className="form-error" role="alert">
+                {importError}
+              </p>
+            )}
           </div>
 
           {isFormOpen && (
