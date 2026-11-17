@@ -149,6 +149,11 @@ export default function App() {
   }, [tasks]);
 
   const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [editingProjectId, setEditingProjectId] = useState<EntityId | null>(
+    null,
+  );
+
+  const [editingProjectTitle, setEditingProjectTitle] = useState('');
 
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
@@ -403,6 +408,43 @@ export default function App() {
 
     setProjects((current) => [newProject, ...current]);
     setNewProjectTitle('');
+  }
+
+  function handleStartProjectEditing(
+    projectId: EntityId,
+    currentTitle: string,
+  ) {
+    setEditingProjectId(projectId);
+    setEditingProjectTitle(currentTitle);
+  }
+
+  function handleSaveProjectTitle(projectId: EntityId) {
+    const title = editingProjectTitle.trim();
+
+    if (!title) {
+      return;
+    }
+
+    setProjects((current) =>
+      current.map((project) => {
+        if (project.id !== projectId) {
+          return project;
+        }
+
+        return {
+          ...project,
+          title,
+        };
+      }),
+    );
+
+    setEditingProjectId(null);
+    setEditingProjectTitle('');
+  }
+
+  function handleCancelProjectEditing() {
+    setEditingProjectId(null);
+    setEditingProjectTitle('');
   }
 
   function handleAddProjectTask(
@@ -899,7 +941,54 @@ export default function App() {
               <ul className="project-list">
                 {projects.map((project) => (
                   <li className="project-card" key={project.id}>
-                    <h3>{project.title}</h3>
+                    {editingProjectId === project.id ? (
+                      <div className="project-editing">
+                        <div className="form-field">
+                          <label htmlFor={`project-title-${project.id}`}>
+                            Название проекта
+                          </label>
+
+                          <input
+                            id={`project-title-${project.id}`}
+                            type="text"
+                            value={editingProjectTitle}
+                            onChange={(event) =>
+                              setEditingProjectTitle(event.target.value)
+                            }
+                            required
+                          />
+                        </div>
+
+                        <div className="project-editing-actions">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveProjectTitle(project.id)}
+                          >
+                            Сохранить
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleCancelProjectEditing}
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="project-header">
+                        <h3>{project.title}</h3>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleStartProjectEditing(project.id, project.title)
+                          }
+                        >
+                          Изменить
+                        </button>
+                      </div>
+                    )}
 
                     <form
                       className="task-form"

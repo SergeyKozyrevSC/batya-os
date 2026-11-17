@@ -627,3 +627,26 @@ button:disabled:hover {
 .project-card .task-title {
   overflow-wrap: anywhere;
 }
+
+.project-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.project-header h3 {
+  margin: 0;
+}
+
+.project-editing {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.project-editing-actions {
+  display: flex;
+  gap: 8px;
+}
