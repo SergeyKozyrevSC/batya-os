@@ -46,3 +46,10 @@ export type Activity = {
   result: ActivityResult;
   note: string;
 };
+
+export type Task = {
+  id: EntityId;
+  title: string;
+  isCompleted: boolean;
+  completedAt: ActivityDate | null;
+};

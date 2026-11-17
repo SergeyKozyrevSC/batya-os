@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react';
 import ActivityForm from './components/ActivityForm';
 import { initialActionTemplates, initialSpheres } from './initial-data';
-import type { Activity } from './types';
+import type { Activity, Task } from './types';
 
 const ACTIVITIES_STORAGE_KEY = 'batya-os.activities';
+const TASKS_STORAGE_KEY = 'batya-os.tasks';
 function getTodayDate(): string {
   const today = new Date();
 
@@ -112,6 +119,31 @@ export default function App() {
 
   const [importError, setImportError] = useState('');
   const [importedCount, setImportedCount] = useState(0);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    try {
+      const storedTasks = window.localStorage.getItem(TASKS_STORAGE_KEY);
+
+      if (!storedTasks) {
+        return [];
+      }
+
+      const parsedTasks = JSON.parse(storedTasks) as Task[];
+
+      if (!Array.isArray(parsedTasks)) {
+        return [];
+      }
+
+      return parsedTasks;
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+  }, [tasks]);
+
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -248,6 +280,54 @@ export default function App() {
     link.click();
 
     URL.revokeObjectURL(url);
+  }
+
+  function handleAddTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const title = newTaskTitle.trim();
+
+    if (!title) {
+      return;
+    }
+
+    const newTask: Task = {
+      id: crypto.randomUUID(),
+      title,
+      isCompleted: false,
+      completedAt: null,
+    };
+
+    setTasks((current) => [newTask, ...current]);
+    setNewTaskTitle('');
+  }
+
+  function handleToggleTask(taskId: string) {
+    setTasks((current) =>
+      current.map((task) => {
+        if (task.id !== taskId) {
+          return task;
+        }
+
+        if (task.isCompleted) {
+          return {
+            ...task,
+            isCompleted: false,
+            completedAt: null,
+          };
+        }
+
+        return {
+          ...task,
+          isCompleted: true,
+          completedAt: getTodayDate(),
+        };
+      }),
+    );
+  }
+
+  function handleDeleteTask(taskId: string) {
+    setTasks((current) => current.filter((task) => task.id !== taskId));
   }
 
   function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
@@ -589,6 +669,60 @@ export default function App() {
             </div>
           )}
 
+          <section className="task-section">
+            <h2>Личный чеклист</h2>
+
+            <form className="task-form" onSubmit={handleAddTask}>
+              <label htmlFor="new-task-title">Новая задача</label>
+
+              <input
+                id="new-task-title"
+                type="text"
+                value={newTaskTitle}
+                onChange={(event) => setNewTaskTitle(event.target.value)}
+                placeholder="Например: разобрать почту"
+                required
+              />
+
+              <button type="submit" className="button-primary">
+                Добавить
+              </button>
+            </form>
+
+            {tasks.length === 0 ? (
+              <p className="empty-state">Задач пока нет. Добавь первую.</p>
+            ) : (
+              <ul className="task-list">
+                {tasks.map((task) => (
+                  <li
+                    className={
+                      task.isCompleted ? 'task-item completed' : 'task-item'
+                    }
+                    key={task.id}
+                  >
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={task.isCompleted}
+                        onChange={() => handleToggleTask(task.id)}
+                      />
+
+                      <span>{task.title}</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      className="button-danger"
+                      onClick={() => handleDeleteTask(task.id)}
+                      aria-label={`Удалить задачу: ${task.title}`}
+                    >
+                      Удалить
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
           <p className="footnote">
             Пока записи хранятся только до перезапуска приложения.
           </p>

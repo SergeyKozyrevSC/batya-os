@@ -503,3 +503,52 @@ button:disabled:hover {
   color: #15803d;
   font-size: 14px;
 }
+
+.task-section {
+  margin-top: 32px;
+  padding: 24px;
+  border-radius: 16px;
+  background-color: #191b23;
+}
+
+.task-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+
+.task-form .form-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background-color: #20212c;
+}
+
+.task-item.completed span {
+  color: #64748b;
+  text-decoration: line-through;
+}
+
+.task-item label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
