@@ -615,3 +615,15 @@ button:disabled:hover {
   margin: 0 0 12px;
   overflow-wrap: anywhere;
 }
+
+.project-card .task-form {
+  margin-bottom: 16px;
+}
+
+.project-card .task-item {
+  min-width: 0;
+}
+
+.project-card .task-title {
+  overflow-wrap: anywhere;
+}

@@ -7,11 +7,12 @@ import {
 } from 'react';
 import ActivityForm from './components/ActivityForm';
 import { initialActionTemplates, initialSpheres } from './initial-data';
-import type { Activity, Project, Task } from './types';
+import type { Activity, EntityId, Project, ProjectTask, Task } from './types';
 
 const ACTIVITIES_STORAGE_KEY = 'batya-os.activities';
 const TASKS_STORAGE_KEY = 'batya-os.tasks';
 const PROJECTS_STORAGE_KEY = 'batya-os.projects';
+const PROJECT_TASKS_STORAGE_KEY = 'batya-os.project-tasks';
 function getTodayDate(): string {
   const today = new Date();
 
@@ -186,6 +187,55 @@ export default function App() {
     window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
   }, [projects]);
 
+  const [newProjectTaskTitle, setNewProjectTaskTitle] = useState('');
+
+  const [projectTasks, setProjectTasks] = useState<ProjectTask[]>(() => {
+    try {
+      const storedTasks = window.localStorage.getItem(
+        PROJECT_TASKS_STORAGE_KEY,
+      );
+
+      if (!storedTasks) {
+        return [];
+      }
+
+      const parsedTasks: unknown = JSON.parse(storedTasks);
+
+      if (!Array.isArray(parsedTasks)) {
+        return [];
+      }
+
+      return parsedTasks.filter((item: unknown): item is ProjectTask => {
+        if (typeof item !== 'object' || item === null) {
+          return false;
+        }
+
+        const candidate = item as Partial<ProjectTask>;
+
+        return (
+          typeof candidate.id === 'string' &&
+          candidate.id.trim() !== '' &&
+          typeof candidate.projectId === 'string' &&
+          candidate.projectId.trim() !== '' &&
+          typeof candidate.title === 'string' &&
+          candidate.title.trim() !== '' &&
+          typeof candidate.isCompleted === 'boolean' &&
+          (candidate.completedAt === null ||
+            typeof candidate.completedAt === 'string')
+        );
+      });
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      PROJECT_TASKS_STORAGE_KEY,
+      JSON.stringify(projectTasks),
+    );
+  }, [projectTasks]);
+
   const todayDate = getTodayDate();
 
   const completedTodayCount = tasks.filter(
@@ -353,6 +403,50 @@ export default function App() {
 
     setProjects((current) => [newProject, ...current]);
     setNewProjectTitle('');
+  }
+
+  function handleAddProjectTask(
+    event: FormEvent<HTMLFormElement>,
+    projectId: EntityId,
+  ) {
+    event.preventDefault();
+
+    const title = newProjectTaskTitle.trim();
+
+    if (!title) {
+      return;
+    }
+
+    const newTask: ProjectTask = {
+      id: crypto.randomUUID(),
+      projectId,
+      title,
+      isCompleted: false,
+      completedAt: null,
+    };
+
+    setProjectTasks((current) => [...current, newTask]);
+    setNewProjectTaskTitle('');
+  }
+
+  function handleToggleProjectTask(taskId: EntityId) {
+    setProjectTasks((current) =>
+      current.map((task) => {
+        if (task.id !== taskId) {
+          return task;
+        }
+
+        return {
+          ...task,
+          isCompleted: !task.isCompleted,
+          completedAt: task.isCompleted ? null : getTodayDate(),
+        };
+      }),
+    );
+  }
+
+  function handleDeleteProjectTask(taskId: EntityId) {
+    setProjectTasks((current) => current.filter((task) => task.id !== taskId));
   }
 
   function handleAddTask(event: FormEvent<HTMLFormElement>) {
@@ -806,7 +900,78 @@ export default function App() {
                 {projects.map((project) => (
                   <li className="project-card" key={project.id}>
                     <h3>{project.title}</h3>
-                    <p className="form-hint">Нет задач</p>
+
+                    <form
+                      className="task-form"
+                      onSubmit={(event) =>
+                        handleAddProjectTask(event, project.id)
+                      }
+                    >
+                      <div className="form-field">
+                        <label htmlFor={`project-task-${project.id}`}>
+                          Новая подзадача
+                        </label>
+
+                        <input
+                          id={`project-task-${project.id}`}
+                          type="text"
+                          value={newProjectTaskTitle}
+                          onChange={(event) =>
+                            setNewProjectTaskTitle(event.target.value)
+                          }
+                          placeholder="Например: Добавить типы"
+                          required
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={!newProjectTaskTitle.trim()}
+                      >
+                        Добавить
+                      </button>
+                    </form>
+
+                    {projectTasks.filter(
+                      (task) => task.projectId === project.id,
+                    ).length === 0 ? (
+                      <p className="empty-state">Подзадач пока нет.</p>
+                    ) : (
+                      <ul className="task-list">
+                        {projectTasks
+                          .filter((task) => task.projectId === project.id)
+                          .map((task) => (
+                            <li
+                              className={
+                                task.isCompleted
+                                  ? 'task-item completed'
+                                  : 'task-item'
+                              }
+                              key={task.id}
+                            >
+                              <label className="task-label">
+                                <input
+                                  type="checkbox"
+                                  checked={task.isCompleted}
+                                  onChange={() =>
+                                    handleToggleProjectTask(task.id)
+                                  }
+                                />
+
+                                <span className="task-title">{task.title}</span>
+                              </label>
+
+                              <button
+                                type="button"
+                                className="task-delete"
+                                onClick={() => handleDeleteProjectTask(task.id)}
+                              >
+                                Удалить
+                              </button>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
                   </li>
                 ))}
               </ul>
