@@ -726,3 +726,9 @@ button:disabled:hover {
   font-size: 14px;
   cursor: pointer;
 }
+
+.section-stats {
+  margin: 0 0 20px;
+  color: #9aa0b5;
+  font-size: 14px;
+}

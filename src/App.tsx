@@ -1047,6 +1047,11 @@ export default function App() {
             aria-labelledby="projects-heading"
           >
             <h2 id="projects-heading">Проекты</h2>
+            <p className="section-stats">
+              Проектов: {projects.length} · Подзадач: {projectTasks.length} ·
+              Выполнено:{' '}
+              {projectTasks.filter((task) => task.isCompleted).length}
+            </p>
 
             <form className="task-form" onSubmit={handleAddProject}>
               <div className="form-field">
