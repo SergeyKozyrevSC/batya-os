@@ -1062,12 +1062,34 @@ export default function App() {
                     ) : (
                       <div className="project-header">
                         <h3>{project.title}</h3>
-                        <p className="project-progress">
-                          Выполнено{' '}
-                          {getProjectProgress(project.id).completedCount} из{' '}
-                          {getProjectProgress(project.id).totalCount} —{' '}
-                          {getProjectProgress(project.id).percent}%
-                        </p>
+                        <div className="project-progress">
+                          <p className="project-progress-label">
+                            Выполнено{' '}
+                            {getProjectProgress(project.id).completedCount} из{' '}
+                            {getProjectProgress(project.id).totalCount} —{' '}
+                            {getProjectProgress(project.id).percent}%
+                          </p>
+
+                          <div
+                            className="project-progress-bar"
+                            role="progressbar"
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={
+                              getProjectProgress(project.id).percent
+                            }
+                            aria-label={`Прогресс проекта: ${project.title}`}
+                          >
+                            <div
+                              className="project-progress-fill"
+                              style={{
+                                width: `${
+                                  getProjectProgress(project.id).percent
+                                }%`,
+                              }}
+                            />
+                          </div>
+                        </div>
 
                         <div className="project-actions">
                           <button
