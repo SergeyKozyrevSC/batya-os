@@ -465,6 +465,27 @@ export default function App() {
     );
   }
 
+  function handleExportProjects() {
+    const exportData = {
+      projects,
+      projectTasks,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json',
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = 'batya-os-projects.json';
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
   function handleRequestProjectDeletion(project: Project) {
     setProjectPendingDeletion(project);
   }
@@ -1078,6 +1099,11 @@ export default function App() {
                 onChange={(event) => setProjectSearchQuery(event.target.value)}
                 placeholder="Поиск по проектам и подзадачам"
               />
+            </div>
+            <div className="project-export">
+              <button type="button" onClick={handleExportProjects}>
+                Экспортировать JSON
+              </button>
             </div>
             <p className="section-stats">
               Проектов: {projects.length} · Подзадач: {projectTasks.length} ·
