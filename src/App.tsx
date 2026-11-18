@@ -149,6 +149,7 @@ export default function App() {
   }, [tasks]);
 
   const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<EntityId | null>(
     null,
   );
@@ -558,6 +559,26 @@ export default function App() {
     }
 
     return tasks;
+  }
+
+  function getVisibleProjects() {
+    const query = projectSearchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return projects;
+    }
+
+    return projects.filter((project) => {
+      const projectMatches = project.title.toLowerCase().includes(query);
+
+      const taskMatches = projectTasks.some(
+        (task) =>
+          task.projectId === project.id &&
+          task.title.toLowerCase().includes(query),
+      );
+
+      return projectMatches || taskMatches;
+    });
   }
 
   function getProjectProgress(projectId: EntityId) {
@@ -1047,6 +1068,17 @@ export default function App() {
             aria-labelledby="projects-heading"
           >
             <h2 id="projects-heading">Проекты</h2>
+            <div className="form-field project-search">
+              <label htmlFor="project-search">Поиск</label>
+
+              <input
+                id="project-search"
+                type="text"
+                value={projectSearchQuery}
+                onChange={(event) => setProjectSearchQuery(event.target.value)}
+                placeholder="Поиск по проектам и подзадачам"
+              />
+            </div>
             <p className="section-stats">
               Проектов: {projects.length} · Подзадач: {projectTasks.length} ·
               Выполнено:{' '}
@@ -1072,11 +1104,11 @@ export default function App() {
               </button>
             </form>
 
-            {projects.length === 0 ? (
+            {getVisibleProjects().length === 0 ? (
               <p className="empty-state">Проектов пока нет. Создай первый.</p>
             ) : (
               <ul className="project-list">
-                {projects.map((project) => (
+                {getVisibleProjects().map((project) => (
                   <li className="project-card" key={project.id}>
                     {editingProjectId === project.id ? (
                       <div className="project-editing">

@@ -732,3 +732,7 @@ button:disabled:hover {
   color: #9aa0b5;
   font-size: 14px;
 }
+
+.project-search {
+  margin-bottom: 20px;
+}
