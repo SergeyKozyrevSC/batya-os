@@ -715,3 +715,14 @@ button:disabled:hover {
   background: #26304d;
   color: #ffffff;
 }
+
+.clear-completed-button {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border: 1px solid #5b2b2b;
+  border-radius: 8px;
+  background: #2b1a1a;
+  color: #ff8a8a;
+  font-size: 14px;
+  cursor: pointer;
+}

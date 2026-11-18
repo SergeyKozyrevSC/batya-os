@@ -456,6 +456,14 @@ export default function App() {
     setEditingProjectTitle('');
   }
 
+  function handleClearCompletedProjectTasks(projectId: EntityId) {
+    setProjectTasks((current) =>
+      current.filter(
+        (task) => task.projectId !== projectId || !task.isCompleted,
+      ),
+    );
+  }
+
   function handleRequestProjectDeletion(project: Project) {
     setProjectPendingDeletion(project);
   }
@@ -1127,6 +1135,20 @@ export default function App() {
                             </button>
                           ))}
                         </div>
+                        {projectTasks.some(
+                          (task) =>
+                            task.projectId === project.id && task.isCompleted,
+                        ) && (
+                          <button
+                            type="button"
+                            className="clear-completed-button"
+                            onClick={() =>
+                              handleClearCompletedProjectTasks(project.id)
+                            }
+                          >
+                            Удалить выполненные
+                          </button>
+                        )}
                         <div className="project-progress">
                           <p className="project-progress-label">
                             Выполнено{' '}
