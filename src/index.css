@@ -692,3 +692,26 @@ button:disabled:hover {
   background: #4f7cff;
   transition: width 0.2s ease;
 }
+
+.project-task-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-button {
+  padding: 8px 12px;
+  border: 1px solid #2b2d39;
+  border-radius: 999px;
+  background: #20212c;
+  color: #e6e8f0;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filter-button.active {
+  border-color: #4f7cff;
+  background: #26304d;
+  color: #ffffff;
+}

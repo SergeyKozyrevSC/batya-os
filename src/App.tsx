@@ -199,6 +199,9 @@ export default function App() {
     useState<EntityId | null>(null);
 
   const [editingProjectTaskTitle, setEditingProjectTaskTitle] = useState('');
+  const [projectTaskFilters, setProjectTaskFilters] = useState<
+    Record<EntityId, 'all' | 'active' | 'completed'>
+  >({});
 
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>(() => {
     try {
@@ -512,6 +515,16 @@ export default function App() {
     setEditingProjectTaskTitle('');
   }
 
+  function handleSetProjectTaskFilter(
+    projectId: EntityId,
+    filter: 'all' | 'active' | 'completed',
+  ) {
+    setProjectTaskFilters((current) => ({
+      ...current,
+      [projectId]: filter,
+    }));
+  }
+
   function getSortedProjectTasks(projectId: EntityId) {
     return projectTasks
       .filter((task) => task.projectId === projectId)
@@ -522,6 +535,21 @@ export default function App() {
 
         return 0;
       });
+  }
+
+  function getFilteredProjectTasks(projectId: EntityId) {
+    const filter = projectTaskFilters[projectId] ?? 'all';
+    const tasks = getSortedProjectTasks(projectId);
+
+    if (filter === 'active') {
+      return tasks.filter((task) => !task.isCompleted);
+    }
+
+    if (filter === 'completed') {
+      return tasks.filter((task) => task.isCompleted);
+    }
+
+    return tasks;
   }
 
   function getProjectProgress(projectId: EntityId) {
@@ -1074,6 +1102,31 @@ export default function App() {
                     ) : (
                       <div className="project-header">
                         <h3>{project.title}</h3>
+                        <div className="project-task-filters">
+                          {(
+                            [
+                              ['all', 'Все'],
+                              ['active', 'Активные'],
+                              ['completed', 'Выполненные'],
+                            ] as const
+                          ).map(([filter, label]) => (
+                            <button
+                              key={filter}
+                              type="button"
+                              className={
+                                (projectTaskFilters[project.id] ?? 'all') ===
+                                filter
+                                  ? 'filter-button active'
+                                  : 'filter-button'
+                              }
+                              onClick={() =>
+                                handleSetProjectTaskFilter(project.id, filter)
+                              }
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                         <div className="project-progress">
                           <p className="project-progress-label">
                             Выполнено{' '}
@@ -1159,11 +1212,11 @@ export default function App() {
                       </button>
                     </form>
 
-                    {getSortedProjectTasks(project.id).length === 0 ? (
+                    {getFilteredProjectTasks(project.id).length === 0 ? (
                       <p className="empty-state">Подзадач пока нет.</p>
                     ) : (
                       <ul className="task-list">
-                        {getSortedProjectTasks(project.id).map((task) => (
+                        {getFilteredProjectTasks(project.id).map((task) => (
                           <li
                             className={
                               task.isCompleted
