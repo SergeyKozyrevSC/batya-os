@@ -151,7 +151,7 @@ export default function App() {
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
-    const [projectImportMessage, setProjectImportMessage] = useState('');
+  const [projectImportMessage, setProjectImportMessage] = useState('');
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<EntityId | null>(
     null,
@@ -503,7 +503,7 @@ export default function App() {
     setIsImportConfirmOpen(true);
   }
 
-    async function handleImportProjects() {
+  async function handleImportProjects() {
     if (!importFile) {
       return;
     }
@@ -520,9 +520,7 @@ export default function App() {
         !('projects' in parsedData) ||
         !('projectTasks' in parsedData)
       ) {
-        throw new Error(
-          'В файле должны быть массивы projects и projectTasks.',
-        );
+        throw new Error('В файле должны быть массивы projects и projectTasks.');
       }
 
       const importedProjects: unknown = parsedData.projects;
@@ -585,12 +583,8 @@ export default function App() {
         );
       }
 
-      const projectIds = new Set(
-        importedProjects.map((project) => project.id),
-      );
-      const taskIds = new Set(
-        importedProjectTasks.map((task) => task.id),
-      );
+      const projectIds = new Set(importedProjects.map((project) => project.id));
+      const taskIds = new Set(importedProjectTasks.map((task) => task.id));
 
       if (projectIds.size !== importedProjects.length) {
         throw new Error('В файле повторяются ID проектов.');
@@ -601,9 +595,7 @@ export default function App() {
       }
 
       if (
-        importedProjectTasks.some(
-          (task) => !projectIds.has(task.projectId),
-        )
+        importedProjectTasks.some((task) => !projectIds.has(task.projectId))
       ) {
         throw new Error(
           'В файле есть подзадача, которая ссылается на отсутствующий проект.',
@@ -623,9 +615,7 @@ export default function App() {
         );
       } else {
         const reason =
-          error instanceof Error
-            ? error.message
-            : 'Не удалось прочитать файл.';
+          error instanceof Error ? error.message : 'Не удалось прочитать файл.';
 
         setProjectImportMessage(
           `Импорт отменён: ${reason} Текущие данные не изменены.`,
@@ -1309,7 +1299,7 @@ export default function App() {
                 Импортировать
               </button>
             </div>
-                        {projectImportMessage && (
+            {projectImportMessage && (
               <p role="status" aria-live="polite">
                 {projectImportMessage}
               </p>
