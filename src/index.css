@@ -850,3 +850,33 @@ body:has(.modal-backdrop) {
   outline: 3px solid #b9a0ef;
   outline-offset: 3px;
 }
+
+.personal-plan-progress {
+  margin-bottom: 20px;
+}
+
+.personal-plan-progress-bar {
+  display: block;
+  width: 100%;
+  height: 10px;
+  overflow: hidden;
+  border: none;
+  border-radius: 999px;
+  appearance: none;
+  background: #eee8fc;
+}
+
+.personal-plan-progress-bar::-webkit-progress-bar {
+  border-radius: 999px;
+  background: #eee8fc;
+}
+
+.personal-plan-progress-bar::-webkit-progress-value {
+  border-radius: 999px;
+  background: #7954c7;
+}
+
+.personal-plan-progress-bar::-moz-progress-bar {
+  border-radius: 999px;
+  background: #7954c7;
+}

@@ -16,7 +16,6 @@ import type {
   Task,
 } from './types';
 
-
 const ACTIVITIES_STORAGE_KEY = 'batya-os.activities';
 const TASKS_STORAGE_KEY = 'batya-os.tasks';
 const PROJECTS_STORAGE_KEY = 'batya-os.projects';
@@ -25,9 +24,7 @@ const SPHERE_PLANS_STORAGE_KEY = 'batya-os.sphere-plans';
 function isPlanTarget(value: unknown): value is number | null {
   return (
     value === null ||
-    (typeof value === 'number' &&
-      Number.isSafeInteger(value) &&
-      value > 0)
+    (typeof value === 'number' && Number.isSafeInteger(value) && value > 0)
   );
 }
 
@@ -120,9 +117,7 @@ function formatActivityResult(
 export default function App() {
   const [spherePlans, setSpherePlans] = useState<SpherePlan[]>(() => {
     try {
-      const storedPlans = window.localStorage.getItem(
-        SPHERE_PLANS_STORAGE_KEY,
-      );
+      const storedPlans = window.localStorage.getItem(SPHERE_PLANS_STORAGE_KEY);
 
       if (!storedPlans) {
         return [];
@@ -130,16 +125,11 @@ export default function App() {
 
       const parsedPlans: unknown = JSON.parse(storedPlans);
 
-      if (
-        !Array.isArray(parsedPlans) ||
-        !parsedPlans.every(isSpherePlan)
-      ) {
+      if (!Array.isArray(parsedPlans) || !parsedPlans.every(isSpherePlan)) {
         return [];
       }
 
-      const sphereIds = new Set(
-        parsedPlans.map((plan) => plan.sphereId),
-      );
+      const sphereIds = new Set(parsedPlans.map((plan) => plan.sphereId));
 
       if (sphereIds.size !== parsedPlans.length) {
         return [];
@@ -161,9 +151,7 @@ export default function App() {
       console.error('Не удалось сохранить планы сфер:', error);
     }
   }, [spherePlans]);
-    const personalPlan = spherePlans.find(
-    (plan) => plan.source === 'tasks',
-  );
+  const personalPlan = spherePlans.find((plan) => plan.source === 'tasks');
 
   const [personalDailyTarget, setPersonalDailyTarget] = useState(
     () => personalPlan?.dailyTarget?.toString() ?? '',
@@ -256,7 +244,7 @@ export default function App() {
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
-    const [projectImportMessage, setProjectImportMessage] = useState('');
+  const [projectImportMessage, setProjectImportMessage] = useState('');
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<EntityId | null>(
     null,
@@ -608,7 +596,7 @@ export default function App() {
     setIsImportConfirmOpen(true);
   }
 
-    async function handleImportProjects() {
+  async function handleImportProjects() {
     if (!importFile) {
       return;
     }
@@ -625,9 +613,7 @@ export default function App() {
         !('projects' in parsedData) ||
         !('projectTasks' in parsedData)
       ) {
-        throw new Error(
-          'В файле должны быть массивы projects и projectTasks.',
-        );
+        throw new Error('В файле должны быть массивы projects и projectTasks.');
       }
 
       const importedProjects: unknown = parsedData.projects;
@@ -690,12 +676,8 @@ export default function App() {
         );
       }
 
-      const projectIds = new Set(
-        importedProjects.map((project) => project.id),
-      );
-      const taskIds = new Set(
-        importedProjectTasks.map((task) => task.id),
-      );
+      const projectIds = new Set(importedProjects.map((project) => project.id));
+      const taskIds = new Set(importedProjectTasks.map((task) => task.id));
 
       if (projectIds.size !== importedProjects.length) {
         throw new Error('В файле повторяются ID проектов.');
@@ -706,9 +688,7 @@ export default function App() {
       }
 
       if (
-        importedProjectTasks.some(
-          (task) => !projectIds.has(task.projectId),
-        )
+        importedProjectTasks.some((task) => !projectIds.has(task.projectId))
       ) {
         throw new Error(
           'В файле есть подзадача, которая ссылается на отсутствующий проект.',
@@ -728,9 +708,7 @@ export default function App() {
         );
       } else {
         const reason =
-          error instanceof Error
-            ? error.message
-            : 'Не удалось прочитать файл.';
+          error instanceof Error ? error.message : 'Не удалось прочитать файл.';
 
         setProjectImportMessage(
           `Импорт отменён: ${reason} Текущие данные не изменены.`,
@@ -767,7 +745,7 @@ export default function App() {
     };
   }, [projectPendingDeletion, isImportConfirmOpen, isFormOpen]);
 
-    function handleSavePersonalPlan(event: FormEvent<HTMLFormElement>) {
+  function handleSavePersonalPlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const dailyTarget = Number(personalDailyTarget);
@@ -800,8 +778,7 @@ export default function App() {
     setSpherePlans((current) => [
       ...current.filter(
         (plan) =>
-          plan.source !== 'tasks' &&
-          plan.sphereId !== personalSphere.id,
+          plan.source !== 'tasks' && plan.sphereId !== personalSphere.id,
       ),
       updatedPlan,
     ]);
@@ -1465,7 +1442,7 @@ export default function App() {
                 Импортировать
               </button>
             </div>
-                        {projectImportMessage && (
+            {projectImportMessage && (
               <p role="status" aria-live="polite">
                 {projectImportMessage}
               </p>
@@ -1765,10 +1742,7 @@ export default function App() {
           <section className="task-section">
             <h2>Личный чеклист</h2>
 
-                        <form
-              className="task-form"
-              onSubmit={handleSavePersonalPlan}
-            >
+            <form className="task-form" onSubmit={handleSavePersonalPlan}>
               <div className="form-field">
                 <label htmlFor="personal-daily-target">
                   Дневной план, задач
@@ -1821,9 +1795,27 @@ export default function App() {
                 : `Всего выполнено: ${completedTasksCount} из ${tasks.length} · ${taskCompletionPercent}%`}
             </p>
 
-            <p className="task-summary" role="status">
-              Выполнено сегодня: {completedTodayCount}
-            </p>
+            <div className="personal-plan-progress">
+              <p className="task-summary" role="status">
+                {personalPlan?.dailyTarget != null
+                  ? `План на сегодня: ${completedTodayCount} / ${personalPlan.dailyTarget} · ${Math.round(
+                      (completedTodayCount / personalPlan.dailyTarget) * 100,
+                    )}%`
+                  : `Выполнено сегодня: ${completedTodayCount} · План не задан`}
+              </p>
+
+              {personalPlan?.dailyTarget != null && (
+                <progress
+                  className="personal-plan-progress-bar"
+                  aria-label="Выполнение дневного плана личного чеклиста"
+                  max={personalPlan.dailyTarget}
+                  value={Math.min(
+                    completedTodayCount,
+                    personalPlan.dailyTarget,
+                  )}
+                />
+              )}
+            </div>
 
             <div className="task-actions">
               <button
