@@ -740,3 +740,9 @@ button:disabled:hover {
 .project-export {
   margin-bottom: 20px;
 }
+
+.project-import {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}

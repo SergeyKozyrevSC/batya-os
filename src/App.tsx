@@ -150,6 +150,7 @@ export default function App() {
 
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<EntityId | null>(
     null,
   );
@@ -484,6 +485,89 @@ export default function App() {
     link.click();
 
     URL.revokeObjectURL(url);
+  }
+
+  function handleSelectImportFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+
+    setImportFile(file);
+  }
+
+  async function handleImportProjects() {
+    if (!importFile) {
+      return;
+    }
+
+    try {
+      const fileContent = await importFile.text();
+      const parsedData: unknown = JSON.parse(fileContent);
+
+      if (
+        typeof parsedData !== 'object' ||
+        parsedData === null ||
+        !('projects' in parsedData) ||
+        !('projectTasks' in parsedData)
+      ) {
+        return;
+      }
+
+      const importedData = parsedData as {
+        projects: unknown;
+        projectTasks: unknown;
+      };
+
+      if (
+        !Array.isArray(importedData.projects) ||
+        !Array.isArray(importedData.projectTasks)
+      ) {
+        return;
+      }
+
+      const importedProjects = importedData.projects.filter(
+        (item: unknown): item is Project => {
+          if (typeof item !== 'object' || item === null) {
+            return false;
+          }
+
+          const candidate = item as Partial<Project>;
+
+          return (
+            typeof candidate.id === 'string' &&
+            candidate.id.trim() !== '' &&
+            typeof candidate.title === 'string' &&
+            candidate.title.trim() !== ''
+          );
+        },
+      );
+
+      const importedProjectTasks = importedData.projectTasks.filter(
+        (item: unknown): item is ProjectTask => {
+          if (typeof item !== 'object' || item === null) {
+            return false;
+          }
+
+          const candidate = item as Partial<ProjectTask>;
+
+          return (
+            typeof candidate.id === 'string' &&
+            candidate.id.trim() !== '' &&
+            typeof candidate.projectId === 'string' &&
+            candidate.projectId.trim() !== '' &&
+            typeof candidate.title === 'string' &&
+            candidate.title.trim() !== '' &&
+            typeof candidate.isCompleted === 'boolean' &&
+            (candidate.completedAt === null ||
+              typeof candidate.completedAt === 'string')
+          );
+        },
+      );
+
+      setProjects(importedProjects);
+      setProjectTasks(importedProjectTasks);
+      setImportFile(null);
+    } catch {
+      return;
+    }
   }
 
   function handleRequestProjectDeletion(project: Project) {
@@ -1103,6 +1187,26 @@ export default function App() {
             <div className="project-export">
               <button type="button" onClick={handleExportProjects}>
                 Экспортировать JSON
+              </button>
+            </div>
+            <div className="project-import">
+              <div className="form-field">
+                <label htmlFor="project-import-file">Импорт JSON</label>
+
+                <input
+                  id="project-import-file"
+                  type="file"
+                  accept="application/json"
+                  onChange={handleSelectImportFile}
+                />
+              </div>
+
+              <button
+                type="button"
+                disabled={!importFile}
+                onClick={handleImportProjects}
+              >
+                Импортировать
               </button>
             </div>
             <p className="section-stats">
