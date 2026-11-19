@@ -7,12 +7,66 @@ import {
 } from 'react';
 import ActivityForm from './components/ActivityForm';
 import { initialActionTemplates, initialSpheres } from './initial-data';
-import type { Activity, EntityId, Project, ProjectTask, Task } from './types';
+import type {
+  Activity,
+  EntityId,
+  Project,
+  ProjectTask,
+  SpherePlan,
+  Task,
+} from './types';
+
 
 const ACTIVITIES_STORAGE_KEY = 'batya-os.activities';
 const TASKS_STORAGE_KEY = 'batya-os.tasks';
 const PROJECTS_STORAGE_KEY = 'batya-os.projects';
 const PROJECT_TASKS_STORAGE_KEY = 'batya-os.project-tasks';
+const SPHERE_PLANS_STORAGE_KEY = 'batya-os.sphere-plans';
+function isPlanTarget(value: unknown): value is number | null {
+  return (
+    value === null ||
+    (typeof value === 'number' &&
+      Number.isSafeInteger(value) &&
+      value > 0)
+  );
+}
+
+function isSpherePlan(value: unknown): value is SpherePlan {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('sphereId' in value) ||
+    typeof value.sphereId !== 'string' ||
+    value.sphereId.trim() === '' ||
+    !('dailyTarget' in value) ||
+    !isPlanTarget(value.dailyTarget) ||
+    !('source' in value)
+  ) {
+    return false;
+  }
+
+  if (value.source === 'tasks' || value.source === 'projectTasks') {
+    return true;
+  }
+
+  if (value.source !== 'activities') {
+    return false;
+  }
+
+  return (
+    'weeklyTarget' in value &&
+    isPlanTarget(value.weeklyTarget) &&
+    'metric' in value &&
+    (value.metric === 'count' ||
+      value.metric === 'quantity' ||
+      value.metric === 'minutes') &&
+    'templateIds' in value &&
+    Array.isArray(value.templateIds) &&
+    value.templateIds.every(
+      (id: unknown) => typeof id === 'string' && id.trim() !== '',
+    )
+  );
+}
 function getTodayDate(): string {
   const today = new Date();
 
@@ -64,6 +118,57 @@ function formatActivityResult(
 }
 
 export default function App() {
+  const [spherePlans, setSpherePlans] = useState<SpherePlan[]>(() => {
+    try {
+      const storedPlans = window.localStorage.getItem(
+        SPHERE_PLANS_STORAGE_KEY,
+      );
+
+      if (!storedPlans) {
+        return [];
+      }
+
+      const parsedPlans: unknown = JSON.parse(storedPlans);
+
+      if (
+        !Array.isArray(parsedPlans) ||
+        !parsedPlans.every(isSpherePlan)
+      ) {
+        return [];
+      }
+
+      const sphereIds = new Set(
+        parsedPlans.map((plan) => plan.sphereId),
+      );
+
+      if (sphereIds.size !== parsedPlans.length) {
+        return [];
+      }
+
+      return parsedPlans;
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        SPHERE_PLANS_STORAGE_KEY,
+        JSON.stringify(spherePlans),
+      );
+    } catch (error: unknown) {
+      console.error('Не удалось сохранить планы сфер:', error);
+    }
+  }, [spherePlans]);
+    const personalPlan = spherePlans.find(
+    (plan) => plan.source === 'tasks',
+  );
+
+  const [personalDailyTarget, setPersonalDailyTarget] = useState(
+    () => personalPlan?.dailyTarget?.toString() ?? '',
+  );
+  const [personalPlanMessage, setPersonalPlanMessage] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | undefined>(
     undefined,
@@ -151,7 +256,7 @@ export default function App() {
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [projectImportMessage, setProjectImportMessage] = useState('');
+    const [projectImportMessage, setProjectImportMessage] = useState('');
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<EntityId | null>(
     null,
@@ -503,7 +608,7 @@ export default function App() {
     setIsImportConfirmOpen(true);
   }
 
-  async function handleImportProjects() {
+    async function handleImportProjects() {
     if (!importFile) {
       return;
     }
@@ -520,7 +625,9 @@ export default function App() {
         !('projects' in parsedData) ||
         !('projectTasks' in parsedData)
       ) {
-        throw new Error('В файле должны быть массивы projects и projectTasks.');
+        throw new Error(
+          'В файле должны быть массивы projects и projectTasks.',
+        );
       }
 
       const importedProjects: unknown = parsedData.projects;
@@ -583,8 +690,12 @@ export default function App() {
         );
       }
 
-      const projectIds = new Set(importedProjects.map((project) => project.id));
-      const taskIds = new Set(importedProjectTasks.map((task) => task.id));
+      const projectIds = new Set(
+        importedProjects.map((project) => project.id),
+      );
+      const taskIds = new Set(
+        importedProjectTasks.map((task) => task.id),
+      );
 
       if (projectIds.size !== importedProjects.length) {
         throw new Error('В файле повторяются ID проектов.');
@@ -595,7 +706,9 @@ export default function App() {
       }
 
       if (
-        importedProjectTasks.some((task) => !projectIds.has(task.projectId))
+        importedProjectTasks.some(
+          (task) => !projectIds.has(task.projectId),
+        )
       ) {
         throw new Error(
           'В файле есть подзадача, которая ссылается на отсутствующий проект.',
@@ -615,7 +728,9 @@ export default function App() {
         );
       } else {
         const reason =
-          error instanceof Error ? error.message : 'Не удалось прочитать файл.';
+          error instanceof Error
+            ? error.message
+            : 'Не удалось прочитать файл.';
 
         setProjectImportMessage(
           `Импорт отменён: ${reason} Текущие данные не изменены.`,
@@ -651,6 +766,57 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [projectPendingDeletion, isImportConfirmOpen, isFormOpen]);
+
+    function handleSavePersonalPlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const dailyTarget = Number(personalDailyTarget);
+
+    if (
+      personalDailyTarget.trim() === '' ||
+      !Number.isSafeInteger(dailyTarget) ||
+      dailyTarget <= 0 ||
+      !Number.isSafeInteger(dailyTarget * 7)
+    ) {
+      setPersonalPlanMessage('Введите положительное целое число.');
+      return;
+    }
+
+    const personalSphere = initialSpheres.find(
+      (sphere) => sphere.name === 'Личное',
+    );
+
+    if (!personalSphere) {
+      setPersonalPlanMessage('Не найдена сфера «Личное».');
+      return;
+    }
+
+    const updatedPlan: SpherePlan = {
+      sphereId: personalSphere.id,
+      source: 'tasks',
+      dailyTarget,
+    };
+
+    setSpherePlans((current) => [
+      ...current.filter(
+        (plan) =>
+          plan.source !== 'tasks' &&
+          plan.sphereId !== personalSphere.id,
+      ),
+      updatedPlan,
+    ]);
+
+    setPersonalDailyTarget(String(dailyTarget));
+    setPersonalPlanMessage('План применён.');
+  }
+
+  function handleClearPersonalPlan() {
+    setSpherePlans((current) =>
+      current.filter((plan) => plan.source !== 'tasks'),
+    );
+    setPersonalDailyTarget('');
+    setPersonalPlanMessage('План убран. Задачи не изменены.');
+  }
 
   function handleRequestProjectDeletion(project: Project) {
     setProjectPendingDeletion(project);
@@ -1299,7 +1465,7 @@ export default function App() {
                 Импортировать
               </button>
             </div>
-            {projectImportMessage && (
+                        {projectImportMessage && (
               <p role="status" aria-live="polite">
                 {projectImportMessage}
               </p>
@@ -1598,6 +1764,56 @@ export default function App() {
 
           <section className="task-section">
             <h2>Личный чеклист</h2>
+
+                        <form
+              className="task-form"
+              onSubmit={handleSavePersonalPlan}
+            >
+              <div className="form-field">
+                <label htmlFor="personal-daily-target">
+                  Дневной план, задач
+                </label>
+
+                <input
+                  id="personal-daily-target"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={personalDailyTarget}
+                  onChange={(event) => {
+                    setPersonalDailyTarget(event.target.value);
+                    setPersonalPlanMessage('');
+                  }}
+                  placeholder="Например: 3"
+                  required
+                />
+              </div>
+
+              <button type="submit" className="button-primary">
+                Сохранить план
+              </button>
+
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={handleClearPersonalPlan}
+                disabled={!personalPlan}
+              >
+                Убрать план
+              </button>
+            </form>
+
+            <p className="task-summary">
+              {personalPlan?.dailyTarget != null
+                ? `План: ${personalPlan.dailyTarget} задач в день · ${personalPlan.dailyTarget * 7} задач в неделю`
+                : 'План не задан'}
+            </p>
+
+            {personalPlanMessage && (
+              <p className="form-hint" role="status">
+                {personalPlanMessage}
+              </p>
+            )}
 
             <p className="task-summary" role="status">
               {tasks.length === 0
