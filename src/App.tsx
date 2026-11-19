@@ -182,6 +182,14 @@ export default function App() {
     () => personalPlan?.dailyTarget?.toString() ?? '',
   );
   const [personalPlanMessage, setPersonalPlanMessage] = useState('');
+  const projectPlan = spherePlans.find(
+    (plan) => plan.source === 'projectTasks',
+  );
+
+  const [projectDailyTarget, setProjectDailyTarget] = useState(
+    () => projectPlan?.dailyTarget?.toString() ?? '',
+  );
+  const [projectPlanMessage, setProjectPlanMessage] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | undefined>(
     undefined,
@@ -830,6 +838,56 @@ export default function App() {
     setPersonalPlanMessage('План убран. Задачи не изменены.');
   }
 
+  function handleSaveProjectPlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const dailyTarget = Number(projectDailyTarget);
+
+    if (
+      projectDailyTarget.trim() === '' ||
+      !Number.isSafeInteger(dailyTarget) ||
+      dailyTarget <= 0 ||
+      !Number.isSafeInteger(dailyTarget * 7)
+    ) {
+      setProjectPlanMessage('Введите положительное целое число.');
+      return;
+    }
+
+    const projectSphere = initialSpheres.find(
+      (sphere) => sphere.id === 'sphere-projects',
+    );
+
+    if (!projectSphere) {
+      setProjectPlanMessage('Не найдена сфера «Проекты».');
+      return;
+    }
+
+    const updatedPlan: SpherePlan = {
+      sphereId: projectSphere.id,
+      source: 'projectTasks',
+      dailyTarget,
+    };
+
+    setSpherePlans((current) => [
+      ...current.filter(
+        (plan) =>
+          plan.source !== 'projectTasks' && plan.sphereId !== projectSphere.id,
+      ),
+      updatedPlan,
+    ]);
+
+    setProjectDailyTarget(String(dailyTarget));
+    setProjectPlanMessage('План применён.');
+  }
+
+  function handleClearProjectPlan() {
+    setSpherePlans((current) =>
+      current.filter((plan) => plan.source !== 'projectTasks'),
+    );
+    setProjectDailyTarget('');
+    setProjectPlanMessage('План убран. Проекты и подзадачи не изменены.');
+  }
+
   function handleRequestProjectDeletion(project: Project) {
     setProjectPendingDeletion(project);
   }
@@ -1441,6 +1499,56 @@ export default function App() {
             aria-labelledby="projects-heading"
           >
             <h2 id="projects-heading">Проекты</h2>
+            <form className="task-form" onSubmit={handleSaveProjectPlan}>
+              <div className="form-field">
+                <label htmlFor="project-daily-target">
+                  Дневной план, подзадач
+                </label>
+
+                <input
+                  id="project-daily-target"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={projectDailyTarget}
+                  onChange={(event) => {
+                    setProjectDailyTarget(event.target.value);
+                    setProjectPlanMessage('');
+                  }}
+                  placeholder="Например: 2"
+                  required
+                />
+              </div>
+
+              <button type="submit" className="button-primary">
+                Сохранить план
+              </button>
+
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={handleClearProjectPlan}
+                disabled={!projectPlan}
+              >
+                Убрать план
+              </button>
+            </form>
+
+            <p className="task-summary">
+              {projectPlan?.dailyTarget != null
+                ? `План: ${projectPlan.dailyTarget} подзадач в день · ${projectPlan.dailyTarget * 7} подзадач в неделю`
+                : 'План подзадач не задан'}
+            </p>
+
+            <p className="form-hint">
+              Один общий план на подзадачи всех проектов.
+            </p>
+
+            {projectPlanMessage && (
+              <p className="form-hint" role="status">
+                {projectPlanMessage}
+              </p>
+            )}
             <div className="form-field project-search">
               <label htmlFor="project-search">Поиск</label>
 
