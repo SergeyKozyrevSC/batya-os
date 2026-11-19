@@ -73,6 +73,31 @@ function getTodayDate(): string {
 
   return `${year}-${month}-${day}`;
 }
+
+function getWeekRange(date: string): { start: string; end: string } {
+  const referenceDate = new Date(`${date}T12:00:00`);
+  const daysSinceMonday = (referenceDate.getDay() + 6) % 7;
+
+  const monday = new Date(referenceDate);
+  monday.setDate(monday.getDate() - daysSinceMonday);
+
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+
+  function formatDate(value: Date): string {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  }
+
+  return {
+    start: formatDate(monday),
+    end: formatDate(sunday),
+  };
+}
+
 const SPHERE_FILTER_STORAGE_KEY = 'batya-os.sphereFilter';
 
 const sphereDescriptions: Record<string, string> = {
@@ -351,6 +376,16 @@ export default function App() {
 
   const completedTodayCount = tasks.filter(
     (task) => task.isCompleted && task.completedAt === todayDate,
+  ).length;
+
+  const currentWeek = getWeekRange(todayDate);
+
+  const completedThisWeekCount = tasks.filter(
+    (task) =>
+      task.isCompleted &&
+      task.completedAt !== null &&
+      task.completedAt >= currentWeek.start &&
+      task.completedAt <= currentWeek.end,
   ).length;
 
   const completedTasksCount = tasks.filter((task) => task.isCompleted).length;
@@ -1833,6 +1868,34 @@ export default function App() {
               <p className="form-hint">
                 Удаляет все выполненные задачи без возможности восстановления.
               </p>
+            </div>
+
+            <div className="personal-plan-progress">
+              <p className="form-hint">
+                Неделя: {currentWeek.start} — {currentWeek.end}
+              </p>
+
+              <p className="task-summary" role="status">
+                {personalPlan?.dailyTarget != null
+                  ? `План на неделю: ${completedThisWeekCount} / ${personalPlan.dailyTarget * 7} · ${Math.round(
+                      (completedThisWeekCount /
+                        (personalPlan.dailyTarget * 7)) *
+                        100,
+                    )}%`
+                  : `Выполнено за неделю: ${completedThisWeekCount} · План не задан`}
+              </p>
+
+              {personalPlan?.dailyTarget != null && (
+                <progress
+                  className="personal-plan-progress-bar"
+                  aria-label="Выполнение недельного плана личного чеклиста"
+                  max={personalPlan.dailyTarget * 7}
+                  value={Math.min(
+                    completedThisWeekCount,
+                    personalPlan.dailyTarget * 7,
+                  )}
+                />
+              )}
             </div>
 
             <form className="task-form" onSubmit={handleAddTask}>
