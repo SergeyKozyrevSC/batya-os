@@ -611,6 +611,19 @@ export default function App() {
     }));
   };
 
+  const handleSphereWeeklyTargetChange = (
+    sphereId: EntityId,
+    value: string,
+  ) => {
+    const parsedValue = Number.parseInt(value, 10);
+
+    updateActivitySpherePlan(sphereId, (plan) => ({
+      ...plan,
+      weeklyTarget:
+        Number.isNaN(parsedValue) || parsedValue < 1 ? null : parsedValue,
+    }));
+  };
+
   function handleAddProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -1310,6 +1323,91 @@ export default function App() {
     event.target.value = '';
   }
 
+  const weekRange = getWeekRange(todayDate);
+
+  const weeklyProgressItems: Array<{
+    sphereId: EntityId;
+    sphereName: string;
+    fact: number;
+    target: number | null;
+    ratio: number;
+    valueColor: string;
+  }> = initialSpheres.map((sphere) => {
+    const activityPlan = spherePlans.find(
+      (plan) => plan.source === 'activities' && plan.sphereId === sphere.id,
+    ) as ActivitySpherePlan | undefined;
+
+    const taskPlan = spherePlans.find(
+      (plan) => plan.source === 'tasks' && plan.sphereId === sphere.id,
+    );
+
+    const projectTaskPlan = spherePlans.find(
+      (plan) => plan.source === 'projectTasks' && plan.sphereId === sphere.id,
+    );
+
+    const weeklyActivityCount = activities.filter((activity) => {
+      const template = initialActionTemplates.find(
+        (item) => item.id === activity.templateId,
+      );
+
+      return (
+        activity.date >= weekRange.start &&
+        activity.date <= weekRange.end &&
+        template?.sphereId === sphere.id &&
+        activityPlan?.templateIds.includes(activity.templateId)
+      );
+    }).length;
+
+    const weeklyCompletedTasksCount = tasks.filter((task) => {
+      return (
+        task.isCompleted &&
+        task.completedAt !== null &&
+        task.completedAt >= weekRange.start &&
+        task.completedAt <= weekRange.end
+      );
+    }).length;
+
+    const weeklyCompletedProjectTasksCount = projectTasks.filter((task) => {
+      return (
+        task.isCompleted &&
+        task.completedAt !== null &&
+        task.completedAt >= weekRange.start &&
+        task.completedAt <= weekRange.end
+      );
+    }).length;
+
+    const isPersonalSphere = sphere.id === 'sphere-personal';
+    const isProjectsSphere = sphere.id === 'sphere-projects';
+
+    const fact = isPersonalSphere
+      ? weeklyCompletedTasksCount
+      : isProjectsSphere
+        ? weeklyCompletedProjectTasksCount
+        : weeklyActivityCount;
+
+    const target = isPersonalSphere
+      ? taskPlan?.dailyTarget != null
+        ? taskPlan.dailyTarget * 7
+        : null
+      : isProjectsSphere
+        ? projectTaskPlan?.dailyTarget != null
+          ? projectTaskPlan.dailyTarget * 7
+          : null
+        : (activityPlan?.weeklyTarget ?? null);
+
+    const ratio = target != null && target > 0 ? fact / target : 0;
+    const valueColor = `hsl(${Math.min(ratio, 1) * 120} 80% 55%)`;
+
+    return {
+      sphereId: sphere.id,
+      sphereName: sphere.name,
+      fact,
+      target,
+      ratio,
+      valueColor,
+    };
+  });
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -1431,6 +1529,21 @@ export default function App() {
                         />
                       </label>
 
+                      <label className="sphere-plan-target">
+                        Цель на неделю:
+                        <input
+                          type="number"
+                          min="1"
+                          value={spherePlan?.weeklyTarget?.toString() ?? ''}
+                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                            handleSphereWeeklyTargetChange(
+                              sphere.id,
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+
                       <p className="task-summary" role="status">
                         {spherePlan?.dailyTarget != null
                           ? `Сегодня: ${completedTodayCount} / ${spherePlan.dailyTarget}`
@@ -1443,7 +1556,69 @@ export default function App() {
             );
           })}
         </div>
+        <section
+          className="weekly-progress-section"
+          aria-labelledby="weekly-progress-heading"
+        >
+          <div className="section-heading">
+            <h2 id="weekly-progress-heading">Недельный прогресс</h2>
+          </div>
 
+          <div className="weekly-progress-list">
+            {weeklyProgressItems.map((item) => {
+              const progressValue =
+                item.target != null && item.target > 0
+                  ? Math.min(item.fact, item.target)
+                  : 0;
+
+              const progressMax =
+                item.target != null && item.target > 0 ? item.target : 1;
+
+              return (
+                <div className="weekly-progress-item" key={item.sphereId}>
+                  <div className="weekly-progress-header">
+                    <span className="weekly-progress-name">
+                      {item.sphereName}
+                    </span>
+
+                    <span className="weekly-progress-value">
+                      {item.target != null ? (
+                        <>
+                          <span
+                            className="weekly-progress-fact"
+                            style={{ color: item.valueColor }}
+                          >
+                            {item.fact}
+                          </span>
+                          {' / '}
+                          <span className="weekly-progress-target">
+                            {item.target}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span
+                            className="weekly-progress-fact"
+                            style={{ color: item.valueColor }}
+                          >
+                            {item.fact}
+                          </span>
+                          {' · План не задан'}
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  <progress
+                    className="weekly-progress-bar"
+                    max={progressMax}
+                    value={progressValue}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </section>
         <section
           className="activity-section"
           aria-labelledby="activity-log-heading"
