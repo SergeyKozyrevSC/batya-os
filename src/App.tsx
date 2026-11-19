@@ -151,6 +151,7 @@ export default function App() {
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
+    const [projectImportMessage, setProjectImportMessage] = useState('');
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<EntityId | null>(
     null,
@@ -502,10 +503,12 @@ export default function App() {
     setIsImportConfirmOpen(true);
   }
 
-  async function handleImportProjects() {
+    async function handleImportProjects() {
     if (!importFile) {
       return;
     }
+
+    setProjectImportMessage('');
 
     try {
       const fileContent = await importFile.text();
@@ -517,65 +520,117 @@ export default function App() {
         !('projects' in parsedData) ||
         !('projectTasks' in parsedData)
       ) {
-        return;
+        throw new Error(
+          'В файле должны быть массивы projects и projectTasks.',
+        );
       }
 
-      const importedData = parsedData as {
-        projects: unknown;
-        projectTasks: unknown;
-      };
+      const importedProjects: unknown = parsedData.projects;
+      const importedProjectTasks: unknown = parsedData.projectTasks;
 
       if (
-        !Array.isArray(importedData.projects) ||
-        !Array.isArray(importedData.projectTasks)
+        !Array.isArray(importedProjects) ||
+        !Array.isArray(importedProjectTasks)
       ) {
-        return;
+        throw new Error('Поля projects и projectTasks должны быть массивами.');
       }
 
-      const importedProjects = importedData.projects.filter(
-        (item: unknown): item is Project => {
-          if (typeof item !== 'object' || item === null) {
-            return false;
-          }
+      function isProject(item: unknown): item is Project {
+        if (typeof item !== 'object' || item === null) {
+          return false;
+        }
 
-          const candidate = item as Partial<Project>;
+        const candidate = item as Partial<Project>;
 
-          return (
-            typeof candidate.id === 'string' &&
-            candidate.id.trim() !== '' &&
-            typeof candidate.title === 'string' &&
-            candidate.title.trim() !== ''
-          );
-        },
+        return (
+          typeof candidate.id === 'string' &&
+          candidate.id.trim() !== '' &&
+          typeof candidate.title === 'string' &&
+          candidate.title.trim() !== ''
+        );
+      }
+
+      function isProjectTask(item: unknown): item is ProjectTask {
+        if (typeof item !== 'object' || item === null) {
+          return false;
+        }
+
+        const candidate = item as Partial<ProjectTask>;
+
+        return (
+          typeof candidate.id === 'string' &&
+          candidate.id.trim() !== '' &&
+          typeof candidate.projectId === 'string' &&
+          candidate.projectId.trim() !== '' &&
+          typeof candidate.title === 'string' &&
+          candidate.title.trim() !== '' &&
+          typeof candidate.isCompleted === 'boolean' &&
+          (candidate.completedAt === null ||
+            (typeof candidate.completedAt === 'string' &&
+              candidate.completedAt.trim() !== '' &&
+              !Number.isNaN(Date.parse(candidate.completedAt)))) &&
+          (candidate.isCompleted
+            ? candidate.completedAt !== null
+            : candidate.completedAt === null)
+        );
+      }
+
+      if (!importedProjects.every(isProject)) {
+        throw new Error('В файле есть проект с некорректными полями.');
+      }
+
+      if (!importedProjectTasks.every(isProjectTask)) {
+        throw new Error(
+          'В файле есть подзадача с некорректными полями или датой завершения.',
+        );
+      }
+
+      const projectIds = new Set(
+        importedProjects.map((project) => project.id),
+      );
+      const taskIds = new Set(
+        importedProjectTasks.map((task) => task.id),
       );
 
-      const importedProjectTasks = importedData.projectTasks.filter(
-        (item: unknown): item is ProjectTask => {
-          if (typeof item !== 'object' || item === null) {
-            return false;
-          }
+      if (projectIds.size !== importedProjects.length) {
+        throw new Error('В файле повторяются ID проектов.');
+      }
 
-          const candidate = item as Partial<ProjectTask>;
+      if (taskIds.size !== importedProjectTasks.length) {
+        throw new Error('В файле повторяются ID подзадач.');
+      }
 
-          return (
-            typeof candidate.id === 'string' &&
-            candidate.id.trim() !== '' &&
-            typeof candidate.projectId === 'string' &&
-            candidate.projectId.trim() !== '' &&
-            typeof candidate.title === 'string' &&
-            candidate.title.trim() !== '' &&
-            typeof candidate.isCompleted === 'boolean' &&
-            (candidate.completedAt === null ||
-              typeof candidate.completedAt === 'string')
-          );
-        },
-      );
+      if (
+        importedProjectTasks.some(
+          (task) => !projectIds.has(task.projectId),
+        )
+      ) {
+        throw new Error(
+          'В файле есть подзадача, которая ссылается на отсутствующий проект.',
+        );
+      }
 
       setProjects(importedProjects);
       setProjectTasks(importedProjectTasks);
       setImportFile(null);
-    } catch {
-      return;
+      setProjectImportMessage(
+        `Импорт завершён. Проектов: ${importedProjects.length}, подзадач: ${importedProjectTasks.length}.`,
+      );
+    } catch (error: unknown) {
+      if (error instanceof SyntaxError) {
+        setProjectImportMessage(
+          'Импорт отменён: некорректный JSON. Текущие данные не изменены.',
+        );
+      } else {
+        const reason =
+          error instanceof Error
+            ? error.message
+            : 'Не удалось прочитать файл.';
+
+        setProjectImportMessage(
+          `Импорт отменён: ${reason} Текущие данные не изменены.`,
+        );
+      }
     } finally {
       setIsImportConfirmOpen(false);
     }
@@ -1254,6 +1309,11 @@ export default function App() {
                 Импортировать
               </button>
             </div>
+                        {projectImportMessage && (
+              <p role="status" aria-live="polite">
+                {projectImportMessage}
+              </p>
+            )}
             <p className="section-stats">
               Проектов: {projects.length} · Подзадач: {projectTasks.length} ·
               Выполнено:{' '}
