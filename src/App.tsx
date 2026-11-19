@@ -9,6 +9,7 @@ import ActivityForm from './components/ActivityForm';
 import { initialActionTemplates, initialSpheres } from './initial-data';
 import type {
   Activity,
+  ActivitySpherePlan,
   EntityId,
   Project,
   ProjectTask,
@@ -552,6 +553,63 @@ export default function App() {
 
     URL.revokeObjectURL(url);
   }
+
+  const updateActivitySpherePlan = (
+    sphereId: EntityId,
+    updatePlan: (plan: ActivitySpherePlan) => ActivitySpherePlan,
+  ) => {
+    setSpherePlans((currentPlans) => {
+      const existingPlanIndex = currentPlans.findIndex(
+        (plan) => plan.source === 'activities' && plan.sphereId === sphereId,
+      );
+
+      const existingPlan: ActivitySpherePlan =
+        existingPlanIndex >= 0 &&
+        currentPlans[existingPlanIndex].source === 'activities'
+          ? (currentPlans[existingPlanIndex] as ActivitySpherePlan)
+          : {
+              sphereId,
+              source: 'activities',
+              templateIds: [],
+              metric: 'count',
+              dailyTarget: null,
+              weeklyTarget: null,
+            };
+
+      const nextPlan = updatePlan(existingPlan);
+
+      if (existingPlanIndex < 0) {
+        return [...currentPlans, nextPlan];
+      }
+
+      const nextPlans = [...currentPlans];
+      nextPlans[existingPlanIndex] = nextPlan;
+
+      return nextPlans;
+    });
+  };
+
+  const handleToggleSphereTemplate = (
+    sphereId: EntityId,
+    templateId: EntityId,
+  ) => {
+    updateActivitySpherePlan(sphereId, (plan) => ({
+      ...plan,
+      templateIds: plan.templateIds.includes(templateId)
+        ? plan.templateIds.filter((id) => id !== templateId)
+        : [...plan.templateIds, templateId],
+    }));
+  };
+
+  const handleSphereDailyTargetChange = (sphereId: EntityId, value: string) => {
+    const parsedValue = Number.parseInt(value, 10);
+
+    updateActivitySpherePlan(sphereId, (plan) => ({
+      ...plan,
+      dailyTarget:
+        Number.isNaN(parsedValue) || parsedValue < 1 ? null : parsedValue,
+    }));
+  };
 
   function handleAddProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1309,6 +1367,78 @@ export default function App() {
                     ? 'Пока нет записей'
                     : `Записей всего: ${activityCount}`}
                 </span>
+
+                {(() => {
+                  const sphereTemplates = initialActionTemplates.filter(
+                    (template) => template.sphereId === sphere.id,
+                  );
+
+                  const spherePlan = spherePlans.find(
+                    (plan) =>
+                      plan.source === 'activities' &&
+                      plan.sphereId === sphere.id,
+                  ) as ActivitySpherePlan | undefined;
+
+                  const completedTodayCount = activities.filter((activity) => {
+                    const template = initialActionTemplates.find(
+                      (item) => item.id === activity.templateId,
+                    );
+
+                    return (
+                      activity.date === todayDate &&
+                      template?.sphereId === sphere.id &&
+                      spherePlan?.templateIds.includes(activity.templateId)
+                    );
+                  }).length;
+
+                  return (
+                    <details className="sphere-plan">
+                      <summary>План сферы</summary>
+
+                      <div className="sphere-plan-templates">
+                        {sphereTemplates.map((template) => (
+                          <label key={template.id}>
+                            <input
+                              type="checkbox"
+                              checked={
+                                spherePlan?.templateIds.includes(template.id) ??
+                                false
+                              }
+                              onChange={() =>
+                                handleToggleSphereTemplate(
+                                  sphere.id,
+                                  template.id,
+                                )
+                              }
+                            />
+                            {template.name}
+                          </label>
+                        ))}
+                      </div>
+
+                      <label className="sphere-plan-target">
+                        Цель на день:
+                        <input
+                          type="number"
+                          min="1"
+                          value={spherePlan?.dailyTarget?.toString() ?? ''}
+                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                            handleSphereDailyTargetChange(
+                              sphere.id,
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+
+                      <p className="task-summary" role="status">
+                        {spherePlan?.dailyTarget != null
+                          ? `Сегодня: ${completedTodayCount} / ${spherePlan.dailyTarget}`
+                          : `Сегодня выполнено: ${completedTodayCount} · Цель не задана`}
+                      </p>
+                    </details>
+                  );
+                })()}
               </article>
             );
           })}
