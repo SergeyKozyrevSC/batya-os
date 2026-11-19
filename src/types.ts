@@ -66,3 +66,20 @@ export type ProjectTask = {
   isCompleted: boolean;
   completedAt: ActivityDate | null;
 };
+
+export type ActivitySpherePlan = {
+  sphereId: EntityId;
+  source: 'activities';
+  templateIds: EntityId[];
+  metric: 'count' | 'quantity' | 'minutes';
+  dailyTarget: number | null;
+  weeklyTarget: number | null;
+};
+
+export type TaskSpherePlan = {
+  sphereId: EntityId;
+  source: 'tasks' | 'projectTasks';
+  dailyTarget: number | null;
+};
+
+export type SpherePlan = ActivitySpherePlan | TaskSpherePlan;
