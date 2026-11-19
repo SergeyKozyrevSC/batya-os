@@ -785,3 +785,68 @@ button:disabled:hover {
   background: #dc2626;
   color: #ffffff;
 }
+
+body:has(.modal-overlay),
+body:has(.modal-backdrop) {
+  overflow: hidden;
+}
+
+.modal {
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.modal-close:hover {
+  border-color: rgba(0, 0, 0, 0.32);
+  background: #f3f4f6;
+}
+
+.modal-actions .modal-button-cancel {
+  border: 1px solid #e2d8fc;
+  background: #eee8fc;
+  color: #514078;
+  box-shadow: none;
+}
+
+.modal-actions .modal-button-cancel:hover {
+  border-color: #d3c4f5;
+  background: #e2d8f8;
+}
+
+.modal-actions .modal-button-action {
+  border: 1px solid #7954c7;
+  background: #7954c7;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.modal-actions .modal-button-action:hover {
+  border-color: #6642b0;
+  background: #6642b0;
+}
+
+.modal-actions .modal-button-cancel:focus-visible,
+.modal-actions .modal-button-action:focus-visible {
+  outline: 3px solid #b9a0ef;
+  outline-offset: 3px;
+}

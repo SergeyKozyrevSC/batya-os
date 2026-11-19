@@ -151,6 +151,7 @@ export default function App() {
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<EntityId | null>(
     null,
   );
@@ -493,6 +494,14 @@ export default function App() {
     setImportFile(file);
   }
 
+  function handleRequestImport() {
+    if (!importFile) {
+      return;
+    }
+
+    setIsImportConfirmOpen(true);
+  }
+
   async function handleImportProjects() {
     if (!importFile) {
       return;
@@ -567,8 +576,36 @@ export default function App() {
       setImportFile(null);
     } catch {
       return;
+    } finally {
+      setIsImportConfirmOpen(false);
     }
   }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      if (projectPendingDeletion) {
+        setProjectPendingDeletion(null);
+      }
+
+      if (isImportConfirmOpen) {
+        setIsImportConfirmOpen(false);
+      }
+
+      if (isFormOpen) {
+        handleCloseForm();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [projectPendingDeletion, isImportConfirmOpen, isFormOpen]);
 
   function handleRequestProjectDeletion(project: Project) {
     setProjectPendingDeletion(project);
@@ -1033,6 +1070,14 @@ export default function App() {
 
           {isFormOpen && (
             <div id="activity-form-container">
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Закрыть"
+                onClick={handleCloseForm}
+              >
+                ×
+              </button>
               <ActivityForm
                 key={editingActivity?.id ?? 'new'}
                 spheres={initialSpheres}
@@ -1204,7 +1249,7 @@ export default function App() {
               <button
                 type="button"
                 disabled={!importFile}
-                onClick={handleImportProjects}
+                onClick={handleRequestImport}
               >
                 Импортировать
               </button>
@@ -1659,12 +1704,20 @@ export default function App() {
             >
               <h2 id="delete-activity-title">Удалить активность?</h2>
 
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Закрыть"
+                onClick={cancelDeleteActivity}
+              >
+                ×
+              </button>
+
               <p> Запись будет удалена без возможности восстановить её </p>
               <div className="modal-actions">
                 <button
-                  ref={cancelButtonRef}
                   type="button"
-                  className="button-secondary"
+                  className="modal-button-cancel"
                   onClick={cancelDeleteActivity}
                 >
                   Отмена
@@ -1672,7 +1725,7 @@ export default function App() {
 
                 <button
                   type="button"
-                  className="button-danger"
+                  className="modal-button-action"
                   onClick={confirmDeleteActivity}
                 >
                   Удалить
@@ -1691,22 +1744,74 @@ export default function App() {
               aria-labelledby="delete-project-title"
             >
               <h2 id="delete-project-title">Удалить проект?</h2>
-
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Закрыть"
+                onClick={() => setProjectPendingDeletion(null)}
+              >
+                ×
+              </button>
               <p>
                 Проект «{projectPendingDeletion.title}» и все его подзадачи
                 будут удалены. Действие нельзя отменить.
               </p>
 
               <div className="modal-actions">
-                <button type="button" onClick={handleConfirmProjectDeletion}>
-                  Удалить
+                <button
+                  type="button"
+                  className="modal-button-cancel"
+                  onClick={() => setProjectPendingDeletion(null)}
+                >
+                  Отмена
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setProjectPendingDeletion(null)}
+                  className="modal-button-action"
+                  onClick={handleConfirmProjectDeletion}
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {isImportConfirmOpen && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h2>Подтвердите импорт</h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Закрыть"
+                onClick={() => {
+                  setIsImportConfirmOpen(false);
+                }}
+              >
+                ×
+              </button>
+
+              <p>
+                Текущие проекты и подзадачи будут заменены данными из выбранного
+                файла.
+              </p>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="modal-button-cancel"
+                  onClick={() => setIsImportConfirmOpen(false)}
                 >
                   Отмена
+                </button>
+
+                <button
+                  type="button"
+                  className="modal-button-action"
+                  onClick={handleImportProjects}
+                >
+                  Заменить данные
                 </button>
               </div>
             </div>
