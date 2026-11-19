@@ -396,6 +396,18 @@ export default function App() {
       task.completedAt <= currentWeek.end,
   ).length;
 
+  const completedProjectTasksTodayCount = projectTasks.filter(
+    (task) => task.isCompleted && task.completedAt === todayDate,
+  ).length;
+
+  const completedProjectTasksThisWeekCount = projectTasks.filter(
+    (task) =>
+      task.isCompleted &&
+      task.completedAt !== null &&
+      task.completedAt >= currentWeek.start &&
+      task.completedAt <= currentWeek.end,
+  ).length;
+
   const completedTasksCount = tasks.filter((task) => task.isCompleted).length;
 
   const taskCompletionPercent =
@@ -1549,6 +1561,57 @@ export default function App() {
                 {projectPlanMessage}
               </p>
             )}
+            <div className="personal-plan-progress">
+              <p className="task-summary" role="status">
+                {projectPlan?.dailyTarget != null
+                  ? `Подзадачи сегодня: ${completedProjectTasksTodayCount} / ${projectPlan.dailyTarget} · ${Math.round(
+                      (completedProjectTasksTodayCount /
+                        projectPlan.dailyTarget) *
+                        100,
+                    )}%`
+                  : `Подзадач выполнено сегодня: ${completedProjectTasksTodayCount} · План не задан`}
+              </p>
+
+              {projectPlan?.dailyTarget != null && (
+                <progress
+                  className="personal-plan-progress-bar"
+                  aria-label="Выполнение дневного плана подзадач проектов"
+                  max={projectPlan.dailyTarget}
+                  value={Math.min(
+                    completedProjectTasksTodayCount,
+                    projectPlan.dailyTarget,
+                  )}
+                />
+              )}
+            </div>
+
+            <div className="personal-plan-progress">
+              <p className="form-hint">
+                Неделя: {currentWeek.start} — {currentWeek.end}
+              </p>
+
+              <p className="task-summary" role="status">
+                {projectPlan?.dailyTarget != null
+                  ? `Подзадачи за неделю: ${completedProjectTasksThisWeekCount} / ${projectPlan.dailyTarget * 7} · ${Math.round(
+                      (completedProjectTasksThisWeekCount /
+                        (projectPlan.dailyTarget * 7)) *
+                        100,
+                    )}%`
+                  : `Подзадач выполнено за неделю: ${completedProjectTasksThisWeekCount} · План не задан`}
+              </p>
+
+              {projectPlan?.dailyTarget != null && (
+                <progress
+                  className="personal-plan-progress-bar"
+                  aria-label="Выполнение недельного плана подзадач проектов"
+                  max={projectPlan.dailyTarget * 7}
+                  value={Math.min(
+                    completedProjectTasksThisWeekCount,
+                    projectPlan.dailyTarget * 7,
+                  )}
+                />
+              )}
+            </div>
             <div className="form-field project-search">
               <label htmlFor="project-search">Поиск</label>
 
