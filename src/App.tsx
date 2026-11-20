@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
   type FormEvent,
 } from 'react';
 import ActivityForm from './components/ActivityForm';
@@ -1332,6 +1333,8 @@ export default function App() {
     target: number | null;
     ratio: number;
     valueColor: string;
+    barColor: string;
+    isActivitySphere: boolean;
   }> = initialSpheres.map((sphere) => {
     const activityPlan = spherePlans.find(
       (plan) => plan.source === 'activities' && plan.sphereId === sphere.id,
@@ -1396,7 +1399,8 @@ export default function App() {
         : (activityPlan?.weeklyTarget ?? null);
 
     const ratio = target != null && target > 0 ? fact / target : 0;
-    const valueColor = `hsl(${Math.min(ratio, 1) * 120} 80% 55%)`;
+    const valueColor =
+      fact === 0 ? '#9aa0b5' : `hsl(${Math.min(ratio, 1) * 120} 80% 55%)`;
 
     return {
       sphereId: sphere.id,
@@ -1405,6 +1409,8 @@ export default function App() {
       target,
       ratio,
       valueColor,
+      barColor: valueColor,
+      isActivitySphere: !isPersonalSphere && !isProjectsSphere,
     };
   });
 
@@ -1467,89 +1473,32 @@ export default function App() {
                 </span>
 
                 {(() => {
-                  const sphereTemplates = initialActionTemplates.filter(
-                    (template) => template.sphereId === sphere.id,
+                  const weeklyItem = weeklyProgressItems.find(
+                    (item) => item.sphereId === sphere.id,
                   );
 
-                  const spherePlan = spherePlans.find(
-                    (plan) =>
-                      plan.source === 'activities' &&
-                      plan.sphereId === sphere.id,
-                  ) as ActivitySpherePlan | undefined;
+                  const progressValue =
+                    weeklyItem?.target != null && weeklyItem.target > 0
+                      ? Math.min(weeklyItem.fact, weeklyItem.target)
+                      : 0;
 
-                  const completedTodayCount = activities.filter((activity) => {
-                    const template = initialActionTemplates.find(
-                      (item) => item.id === activity.templateId,
-                    );
-
-                    return (
-                      activity.date === todayDate &&
-                      template?.sphereId === sphere.id &&
-                      spherePlan?.templateIds.includes(activity.templateId)
-                    );
-                  }).length;
+                  const progressMax =
+                    weeklyItem?.target != null && weeklyItem.target > 0
+                      ? weeklyItem.target
+                      : 1;
 
                   return (
-                    <details className="sphere-plan">
-                      <summary>План сферы</summary>
-
-                      <div className="sphere-plan-templates">
-                        {sphereTemplates.map((template) => (
-                          <label key={template.id}>
-                            <input
-                              type="checkbox"
-                              checked={
-                                spherePlan?.templateIds.includes(template.id) ??
-                                false
-                              }
-                              onChange={() =>
-                                handleToggleSphereTemplate(
-                                  sphere.id,
-                                  template.id,
-                                )
-                              }
-                            />
-                            {template.name}
-                          </label>
-                        ))}
-                      </div>
-
-                      <label className="sphere-plan-target">
-                        Цель на день:
-                        <input
-                          type="number"
-                          min="1"
-                          value={spherePlan?.dailyTarget?.toString() ?? ''}
-                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                            handleSphereDailyTargetChange(
-                              sphere.id,
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-
-                      <label className="sphere-plan-target">
-                        Цель на неделю:
-                        <input
-                          type="number"
-                          min="1"
-                          value={spherePlan?.weeklyTarget?.toString() ?? ''}
-                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                            handleSphereWeeklyTargetChange(
-                              sphere.id,
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-
-                      <p className="task-summary" role="status">
-                        {spherePlan?.dailyTarget != null
-                          ? `Сегодня: ${completedTodayCount} / ${spherePlan.dailyTarget}`
-                          : `Сегодня выполнено: ${completedTodayCount} · Цель не задана`}
-                      </p>
-                    </details>
+                    <progress
+                      className="area-progress-bar"
+                      max={progressMax}
+                      value={progressValue}
+                      style={
+                        {
+                          '--progress-color': weeklyItem?.barColor ?? '#9aa0b5',
+                        } as React.CSSProperties
+                      }
+                      aria-label={`Недельный прогресс: ${sphere.name}`}
+                    />
                   );
                 })()}
               </article>
@@ -1574,6 +1523,16 @@ export default function App() {
               const progressMax =
                 item.target != null && item.target > 0 ? item.target : 1;
 
+              const activityPlan = spherePlans.find(
+                (plan) =>
+                  plan.source === 'activities' &&
+                  plan.sphereId === item.sphereId,
+              ) as ActivitySpherePlan | undefined;
+
+              const sphereTemplates = initialActionTemplates.filter(
+                (template) => template.sphereId === item.sphereId,
+              );
+
               return (
                 <div className="weekly-progress-item" key={item.sphereId}>
                   <div className="weekly-progress-header">
@@ -1581,39 +1540,106 @@ export default function App() {
                       {item.sphereName}
                     </span>
 
-                    <span className="weekly-progress-value">
-                      {item.target != null ? (
-                        <>
-                          <span
-                            className="weekly-progress-fact"
-                            style={{ color: item.valueColor }}
-                          >
-                            {item.fact}
-                          </span>
-                          {' / '}
-                          <span className="weekly-progress-target">
-                            {item.target}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span
-                            className="weekly-progress-fact"
-                            style={{ color: item.valueColor }}
-                          >
-                            {item.fact}
-                          </span>
-                          {' · План не задан'}
-                        </>
+                    <div className="weekly-progress-controls">
+                      <span className="weekly-progress-value">
+                        {item.target != null ? (
+                          <>
+                            <span
+                              className="weekly-progress-fact"
+                              style={{ color: item.valueColor }}
+                            >
+                              {item.fact}
+                            </span>
+                            {' / '}
+                            <span className="weekly-progress-target">
+                              {item.target}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span
+                              className="weekly-progress-fact"
+                              style={{ color: item.valueColor }}
+                            >
+                              {item.fact}
+                            </span>
+                            {' · План не задан'}
+                          </>
+                        )}
+                      </span>
+
+                      {item.isActivitySphere && (
+                        <label className="weekly-progress-target-input">
+                          Цель:
+                          <input
+                            type="number"
+                            min="1"
+                            value={activityPlan?.weeklyTarget?.toString() ?? ''}
+                            onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                              handleSphereWeeklyTargetChange(
+                                item.sphereId,
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
                       )}
-                    </span>
+                    </div>
                   </div>
 
                   <progress
                     className="weekly-progress-bar"
                     max={progressMax}
                     value={progressValue}
+                    style={
+                      {
+                        '--progress-color': item.barColor,
+                      } as CSSProperties
+                    }
                   />
+
+                  {item.isActivitySphere && (
+                    <details className="weekly-progress-settings">
+                      <summary>Настройки</summary>
+
+                      <div className="sphere-plan-templates">
+                        {sphereTemplates.map((template) => (
+                          <label key={template.id}>
+                            <input
+                              type="checkbox"
+                              checked={
+                                activityPlan?.templateIds.includes(
+                                  template.id,
+                                ) ?? false
+                              }
+                              onChange={() =>
+                                handleToggleSphereTemplate(
+                                  item.sphereId,
+                                  template.id,
+                                )
+                              }
+                            />
+                            {template.name}
+                          </label>
+                        ))}
+                      </div>
+
+                      <label className="sphere-plan-target">
+                        Цель на день:
+                        <input
+                          type="number"
+                          min="1"
+                          value={activityPlan?.dailyTarget?.toString() ?? ''}
+                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                            handleSphereDailyTargetChange(
+                              item.sphereId,
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+                    </details>
+                  )}
                 </div>
               );
             })}

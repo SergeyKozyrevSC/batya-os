@@ -881,51 +881,12 @@ body:has(.modal-backdrop) {
   background: #7954c7;
 }
 
-.sphere-plan {
-  margin-top: 12px;
-  border-top: 1px solid var(--border-color, #e2e8f0);
-  padding-top: 12px;
-}
-
-.sphere-plan summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--text-secondary, #475569);
-}
-
-.sphere-plan-templates {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
 .sphere-plan-templates label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 14px;
   color: var(--text-primary, #1e293b);
-}
-
-.sphere-plan-target {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  font-size: 14px;
-  color: var(--text-primary, #1e293b);
-}
-
-.sphere-plan-target input {
-  width: 80px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color, #cbd5e1);
-  border-radius: 6px;
-}
-
-.sphere-plan .task-summary {
-  margin-top: 10px;
 }
 
 .weekly-progress-section {
@@ -995,12 +956,12 @@ body:has(.modal-backdrop) {
 
 .weekly-progress-bar::-webkit-progress-value {
   border-radius: 999px;
-  background: #4f7cff;
+  background: var(--progress-color, #4f7cff);
 }
 
 .weekly-progress-bar::-moz-progress-bar {
   border-radius: 999px;
-  background: #4f7cff;
+  background: var(--progress-color, #4f7cff);
 }
 
 @media (max-width: 680px) {
@@ -1013,4 +974,74 @@ body:has(.modal-backdrop) {
   .weekly-progress-value {
     white-space: normal;
   }
+}
+
+.area-progress-bar {
+  display: block;
+  width: 100%;
+  height: 10px;
+  overflow: hidden;
+  border: none;
+  border-radius: 999px;
+  appearance: none;
+  background: #2b2d39;
+}
+
+.area-progress-bar::-webkit-progress-bar {
+  border-radius: 999px;
+  background: #2b2d39;
+}
+
+.area-progress-bar::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--progress-color, #4f7cff);
+}
+
+.area-progress-bar::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--progress-color, #4f7cff);
+}
+
+.weekly-progress-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.weekly-progress-target-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #d9dcea;
+  font-size: 13px;
+}
+
+.weekly-progress-target-input input {
+  width: 72px;
+  padding: 6px 8px;
+  border: 1px solid #454354;
+  border-radius: 6px;
+  background: #13141b;
+  color: #edf0f7;
+  font: inherit;
+  color-scheme: dark;
+}
+
+.weekly-progress-settings {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #2b2d39;
+}
+
+.weekly-progress-settings summary {
+  cursor: pointer;
+  color: #d9dcea;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.weekly-progress-settings .sphere-plan-templates label,
+.weekly-progress-settings .sphere-plan-target {
+  color: #d9dcea;
 }
