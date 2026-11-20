@@ -689,7 +689,7 @@ button:disabled:hover {
 .project-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: #4f7cff;
+  background: var(--progress-color, #4f7cff);
   transition: width 0.2s ease;
 }
 
@@ -873,12 +873,12 @@ body:has(.modal-backdrop) {
 
 .personal-plan-progress-bar::-webkit-progress-value {
   border-radius: 999px;
-  background: #7954c7;
+  background: var(--progress-color, #7954c7);
 }
 
 .personal-plan-progress-bar::-moz-progress-bar {
   border-radius: 999px;
-  background: #7954c7;
+  background: var(--progress-color, #7954c7);
 }
 
 .sphere-plan-templates label {
@@ -1044,4 +1044,15 @@ body:has(.modal-backdrop) {
 .weekly-progress-settings .sphere-plan-templates label,
 .weekly-progress-settings .sphere-plan-target {
   color: #d9dcea;
+}
+
+.sphere-plan-target select {
+  min-width: 120px;
+  padding: 6px 8px;
+  border: 1px solid #454354;
+  border-radius: 6px;
+  background: #13141b;
+  color: #edf0f7;
+  font: inherit;
+  color-scheme: dark;
 }

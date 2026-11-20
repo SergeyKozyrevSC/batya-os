@@ -625,6 +625,18 @@ export default function App() {
     }));
   };
 
+  const handleSphereMetricChange = (sphereId: EntityId, value: string) => {
+    updateActivitySpherePlan(sphereId, (plan) => ({
+      ...plan,
+      metric:
+        value === 'quantity'
+          ? 'quantity'
+          : value === 'minutes'
+            ? 'minutes'
+            : 'count',
+    }));
+  };
+
   function handleAddProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -1348,7 +1360,7 @@ export default function App() {
       (plan) => plan.source === 'projectTasks' && plan.sphereId === sphere.id,
     );
 
-    const weeklyActivityCount = activities.filter((activity) => {
+    const weeklyActivities = activities.filter((activity) => {
       const template = initialActionTemplates.find(
         (item) => item.id === activity.templateId,
       );
@@ -1359,7 +1371,22 @@ export default function App() {
         template?.sphereId === sphere.id &&
         activityPlan?.templateIds.includes(activity.templateId)
       );
-    }).length;
+    });
+
+    const weeklyActivityFact =
+      activityPlan?.metric === 'quantity'
+        ? weeklyActivities.reduce((sum, activity) => {
+            return activity.result.kind === 'quantity'
+              ? sum + activity.result.value
+              : sum;
+          }, 0)
+        : activityPlan?.metric === 'minutes'
+          ? weeklyActivities.reduce((sum, activity) => {
+              return activity.result.kind === 'duration'
+                ? sum + activity.result.minutes
+                : sum;
+            }, 0)
+          : weeklyActivities.length;
 
     const weeklyCompletedTasksCount = tasks.filter((task) => {
       return (
@@ -1386,7 +1413,7 @@ export default function App() {
       ? weeklyCompletedTasksCount
       : isProjectsSphere
         ? weeklyCompletedProjectTasksCount
-        : weeklyActivityCount;
+        : weeklyActivityFact;
 
     const target = isPersonalSphere
       ? taskPlan?.dailyTarget != null
@@ -1601,7 +1628,22 @@ export default function App() {
                   {item.isActivitySphere && (
                     <details className="weekly-progress-settings">
                       <summary>Настройки</summary>
-
+                      <label className="sphere-plan-target">
+                        Метрика:
+                        <select
+                          value={activityPlan?.metric ?? 'count'}
+                          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                            handleSphereMetricChange(
+                              item.sphereId,
+                              event.target.value,
+                            )
+                          }
+                        >
+                          <option value="count">Количество</option>
+                          <option value="quantity">Результат</option>
+                          <option value="minutes">Минуты</option>
+                        </select>
+                      </label>
                       <div className="sphere-plan-templates">
                         {sphereTemplates.map((template) => (
                           <label key={template.id}>
@@ -2111,11 +2153,22 @@ export default function App() {
                           >
                             <div
                               className="project-progress-fill"
-                              style={{
-                                width: `${
-                                  getProjectProgress(project.id).percent
-                                }%`,
-                              }}
+                              style={
+                                {
+                                  width: `${getProjectProgress(project.id).percent}%`,
+                                  '--progress-color':
+                                    getProjectProgress(project.id)
+                                      .completedCount === 0
+                                      ? '#9aa0b5'
+                                      : `hsl(${
+                                          Math.min(
+                                            getProjectProgress(project.id)
+                                              .percent,
+                                            100,
+                                          ) * 1.2
+                                        } 80% 55%)`,
+                                } as CSSProperties
+                              }
                             />
                           </div>
                         </div>
@@ -2350,6 +2403,19 @@ export default function App() {
                     completedTodayCount,
                     personalPlan.dailyTarget,
                   )}
+                  style={
+                    {
+                      '--progress-color':
+                        completedTodayCount === 0
+                          ? '#9aa0b5'
+                          : `hsl(${
+                              Math.min(
+                                completedTodayCount / personalPlan.dailyTarget,
+                                1,
+                              ) * 120
+                            } 80% 55%)`,
+                    } as CSSProperties
+                  }
                 />
               )}
             </div>
