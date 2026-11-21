@@ -27,6 +27,7 @@ const PROJECTS_STORAGE_KEY = 'batya-os.projects';
 const PROJECT_TASKS_STORAGE_KEY = 'batya-os.project-tasks';
 const SPHERE_PLANS_STORAGE_KEY = 'batya-os.sphere-plans';
 const SONGS_STORAGE_KEY = 'batya-os.songs';
+const PROCESSED_NOTES_STORAGE_KEY = 'batya-os.processed-notes';
 function isPlanTarget(value: unknown): value is number | null {
   return (
     value === null ||
@@ -229,6 +230,14 @@ export default function App() {
     );
   }, [activities]);
 
+  const toggleNoteProcessed = (activityId: EntityId) => {
+    setProcessedNoteIds((currentIds) =>
+      currentIds.includes(activityId)
+        ? currentIds.filter((id) => id !== activityId)
+        : [...currentIds, activityId],
+    );
+  };
+
   const [sphereFilter, setSphereFilter] = useState(() => {
     const storedFilter = window.localStorage.getItem(SPHERE_FILTER_STORAGE_KEY);
 
@@ -250,6 +259,40 @@ export default function App() {
   const [activityToDelete, setActivityToDelete] = useState<
     Activity | undefined
   >(undefined);
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes'>('overview');
+  const [noteSphereFilter, setNoteSphereFilter] = useState('all');
+  const [noteStatusFilter, setNoteStatusFilter] = useState<
+    'all' | 'open' | 'done'
+  >('all');
+  const [processedNoteIds, setProcessedNoteIds] = useState<EntityId[]>(() => {
+    try {
+      const storedIds = window.localStorage.getItem(
+        PROCESSED_NOTES_STORAGE_KEY,
+      );
+
+      if (!storedIds) {
+        return [];
+      }
+
+      const parsedIds: unknown = JSON.parse(storedIds);
+
+      return Array.isArray(parsedIds)
+        ? parsedIds.filter(
+            (id: unknown): id is EntityId => typeof id === 'string',
+          )
+        : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      PROCESSED_NOTES_STORAGE_KEY,
+      JSON.stringify(processedNoteIds),
+    );
+  }, [processedNoteIds]);
 
   const [importError, setImportError] = useState('');
   const [importedCount, setImportedCount] = useState(0);
@@ -1652,7 +1695,26 @@ export default function App() {
 
         <div className="sidebar-section">
           <span className="sidebar-label">РАБОЧЕЕ ПРОСТРАНСТВО</span>
-          <div className="current-page">Обзор</div>
+          <div className="sidebar-tabs">
+            <button
+              type="button"
+              className={
+                activeTab === 'overview' ? 'sidebar-tab active' : 'sidebar-tab'
+              }
+              onClick={() => setActiveTab('overview')}
+            >
+              Обзор
+            </button>
+            <button
+              type="button"
+              className={
+                activeTab === 'notes' ? 'sidebar-tab active' : 'sidebar-tab'
+              }
+              onClick={() => setActiveTab('notes')}
+            >
+              Заметки
+            </button>
+          </div>
         </div>
 
         <p className="sidebar-footer">Маленькие шаги. Реальный прогресс.</p>
@@ -1665,1408 +1727,1577 @@ export default function App() {
           </div>
         </header>
 
-        <section className="section-heading">
-          <h2>Фокус</h2>
-          <span>Всего сфер: {initialSpheres.length}</span>
-        </section>
+        {activeTab === 'overview' && (
+          <>
+            <section className="section-heading">
+              <h2>Фокус</h2>
+              <span>Всего сфер: {initialSpheres.length}</span>
+            </section>
 
-        <div className="area-grid">
-          {initialSpheres.map((sphere) => {
-            const activityCount = activities.filter((activity) => {
-              const template = initialActionTemplates.find(
-                (item) => item.id === activity.templateId,
-              );
-
-              return template?.sphereId === sphere.id;
-            }).length;
-
-            return (
-              <article className="area-card" key={sphere.id}>
-                <span className="area-mark" aria-hidden="true">
-                  {sphere.name.slice(0, 1)}
-                </span>
-
-                <h3>{sphere.name}</h3>
-
-                <p>
-                  {sphereDescriptions[sphere.id] ??
-                    'Твои действия в этом направлении'}
-                </p>
-
-                <span className="area-status">
-                  {activityCount === 0
-                    ? 'Пока нет записей'
-                    : `Записей всего: ${activityCount}`}
-                </span>
-
-                {(() => {
-                  const weeklyItem = weeklyProgressItems.find(
-                    (item) => item.sphereId === sphere.id,
+            <div className="area-grid">
+              {initialSpheres.map((sphere) => {
+                const activityCount = activities.filter((activity) => {
+                  const template = initialActionTemplates.find(
+                    (item) => item.id === activity.templateId,
                   );
 
+                  return template?.sphereId === sphere.id;
+                }).length;
+
+                return (
+                  <article className="area-card" key={sphere.id}>
+                    <span className="area-mark" aria-hidden="true">
+                      {sphere.name.slice(0, 1)}
+                    </span>
+
+                    <h3>{sphere.name}</h3>
+
+                    <p>
+                      {sphereDescriptions[sphere.id] ??
+                        'Твои действия в этом направлении'}
+                    </p>
+
+                    <span className="area-status">
+                      {activityCount === 0
+                        ? 'Пока нет записей'
+                        : `Записей всего: ${activityCount}`}
+                    </span>
+
+                    {(() => {
+                      const weeklyItem = weeklyProgressItems.find(
+                        (item) => item.sphereId === sphere.id,
+                      );
+
+                      const progressValue =
+                        weeklyItem?.target != null && weeklyItem.target > 0
+                          ? Math.min(weeklyItem.fact, weeklyItem.target)
+                          : 0;
+
+                      const progressMax =
+                        weeklyItem?.target != null && weeklyItem.target > 0
+                          ? weeklyItem.target
+                          : 1;
+
+                      return (
+                        <progress
+                          className="area-progress-bar"
+                          max={progressMax}
+                          value={progressValue}
+                          style={
+                            {
+                              '--progress-color':
+                                weeklyItem?.barColor ?? '#9aa0b5',
+                            } as React.CSSProperties
+                          }
+                          aria-label={`Недельный прогресс: ${sphere.name}`}
+                        />
+                      );
+                    })()}
+                  </article>
+                );
+              })}
+            </div>
+            <section
+              className="weekly-progress-section"
+              aria-labelledby="weekly-progress-heading"
+            >
+              <div className="section-heading">
+                <h2 id="weekly-progress-heading">Недельный прогресс</h2>
+              </div>
+
+              <div className="weekly-progress-list">
+                {weeklyProgressItems.map((item) => {
                   const progressValue =
-                    weeklyItem?.target != null && weeklyItem.target > 0
-                      ? Math.min(weeklyItem.fact, weeklyItem.target)
+                    item.target != null && item.target > 0
+                      ? Math.min(item.fact, item.target)
                       : 0;
 
                   const progressMax =
-                    weeklyItem?.target != null && weeklyItem.target > 0
-                      ? weeklyItem.target
-                      : 1;
+                    item.target != null && item.target > 0 ? item.target : 1;
+
+                  const activityPlan = spherePlans.find(
+                    (plan) =>
+                      plan.source === 'activities' &&
+                      plan.sphereId === item.sphereId,
+                  ) as ActivitySpherePlan | undefined;
+
+                  const sphereTemplates = initialActionTemplates.filter(
+                    (template) => template.sphereId === item.sphereId,
+                  );
 
                   return (
-                    <progress
-                      className="area-progress-bar"
-                      max={progressMax}
-                      value={progressValue}
-                      style={
-                        {
-                          '--progress-color': weeklyItem?.barColor ?? '#9aa0b5',
-                        } as React.CSSProperties
-                      }
-                      aria-label={`Недельный прогресс: ${sphere.name}`}
-                    />
-                  );
-                })()}
-              </article>
-            );
-          })}
-        </div>
-        <section
-          className="weekly-progress-section"
-          aria-labelledby="weekly-progress-heading"
-        >
-          <div className="section-heading">
-            <h2 id="weekly-progress-heading">Недельный прогресс</h2>
-          </div>
-
-          <div className="weekly-progress-list">
-            {weeklyProgressItems.map((item) => {
-              const progressValue =
-                item.target != null && item.target > 0
-                  ? Math.min(item.fact, item.target)
-                  : 0;
-
-              const progressMax =
-                item.target != null && item.target > 0 ? item.target : 1;
-
-              const activityPlan = spherePlans.find(
-                (plan) =>
-                  plan.source === 'activities' &&
-                  plan.sphereId === item.sphereId,
-              ) as ActivitySpherePlan | undefined;
-
-              const sphereTemplates = initialActionTemplates.filter(
-                (template) => template.sphereId === item.sphereId,
-              );
-
-              return (
-                <div className="weekly-progress-item" key={item.sphereId}>
-                  <div className="weekly-progress-header">
-                    <span className="weekly-progress-name">
-                      {item.sphereName}
-                    </span>
-
-                    <div className="weekly-progress-controls">
-                      <span className="weekly-progress-value">
-                        {item.target != null ? (
-                          <>
-                            <span
-                              className="weekly-progress-fact"
-                              style={{ color: item.valueColor }}
-                            >
-                              {item.fact}
-                            </span>
-                            {' / '}
-                            <span className="weekly-progress-target">
-                              {item.target}
-                            </span>
-                            {' · '}
-                            <span className="weekly-progress-percent">
-                              {Math.round(item.ratio * 100)}%
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span
-                              className="weekly-progress-fact"
-                              style={{ color: item.valueColor }}
-                            >
-                              {item.fact}
-                            </span>
-                            {' · План не задан'}
-                          </>
-                        )}
-                      </span>
-
-                      {item.isActivitySphere && (
-                        <label className="weekly-progress-target-input">
-                          Цель:
-                          <input
-                            type="number"
-                            min="1"
-                            value={activityPlan?.weeklyTarget?.toString() ?? ''}
-                            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                              handleSphereWeeklyTargetChange(
-                                item.sphereId,
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-
-                  <progress
-                    className="weekly-progress-bar"
-                    max={progressMax}
-                    value={progressValue}
-                    style={
-                      {
-                        '--progress-color': item.barColor,
-                      } as CSSProperties
-                    }
-                  />
-
-                  {item.isActivitySphere && (
-                    <details className="weekly-progress-settings">
-                      <summary>Настройки</summary>
-                      <div className="sphere-plan-settings">
-                        <span className="sphere-plan-template-name">
-                          {item.sphereId === 'sphere-fitness'
-                            ? 'Тренировка'
-                            : (sphereTemplates[0]?.name ?? 'Действие')}
+                    <div className="weekly-progress-item" key={item.sphereId}>
+                      <div className="weekly-progress-header">
+                        <span className="weekly-progress-name">
+                          {item.sphereName}
                         </span>
 
-                        {item.sphereId !== 'sphere-fitness' && (
-                          <label className="sphere-plan-target">
-                            Метрика:
-                            <select
-                              value={activityPlan?.metric ?? 'count'}
-                              onChange={(
-                                event: ChangeEvent<HTMLSelectElement>,
-                              ) =>
-                                handleSphereMetricChange(
-                                  item.sphereId,
-                                  event.target.value,
-                                )
-                              }
-                            >
-                              <option value="count">Количество</option>
-                              <option value="quantity">Результат</option>
-                              <option value="minutes">Минуты</option>
-                            </select>
-                          </label>
-                        )}
+                        <div className="weekly-progress-controls">
+                          <span className="weekly-progress-value">
+                            {item.target != null ? (
+                              <>
+                                <span
+                                  className="weekly-progress-fact"
+                                  style={{ color: item.valueColor }}
+                                >
+                                  {item.fact}
+                                </span>
+                                {' / '}
+                                <span className="weekly-progress-target">
+                                  {item.target}
+                                </span>
+                                {' · '}
+                                <span className="weekly-progress-percent">
+                                  {Math.round(item.ratio * 100)}%
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span
+                                  className="weekly-progress-fact"
+                                  style={{ color: item.valueColor }}
+                                >
+                                  {item.fact}
+                                </span>
+                                {' · План не задан'}
+                              </>
+                            )}
+                          </span>
 
-                        <label className="sphere-plan-target">
-                          Режим:
-                          <select
-                            value={activityPlan?.frequency ?? 'daily'}
-                            onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                              handleSphereFrequencyChange(
-                                item.sphereId,
-                                event.target.value,
-                              )
-                            }
-                          >
-                            <option value="daily">Ежедневно</option>
-                            <option value="weekly">За неделю</option>
-                          </select>
-                        </label>
-
-                        {(activityPlan?.frequency ?? 'daily') === 'daily' && (
-                          <label className="sphere-plan-target">
-                            Цель на день:
-                            <input
-                              type="number"
-                              min="1"
-                              value={
-                                activityPlan?.dailyTarget?.toString() ?? ''
-                              }
-                              onChange={(
-                                event: ChangeEvent<HTMLInputElement>,
-                              ) =>
-                                handleSphereDailyTargetChange(
-                                  item.sphereId,
-                                  event.target.value,
-                                )
-                              }
-                            />
-                          </label>
-                        )}
-
-                        <label className="sphere-plan-target">
-                          Цель на неделю:
-                          <input
-                            type="number"
-                            min="1"
-                            value={activityPlan?.weeklyTarget?.toString() ?? ''}
-                            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                              handleSphereWeeklyTargetChange(
-                                item.sphereId,
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
+                          {item.isActivitySphere && (
+                            <label className="weekly-progress-target-input">
+                              Цель:
+                              <input
+                                type="number"
+                                min="1"
+                                value={
+                                  activityPlan?.weeklyTarget?.toString() ?? ''
+                                }
+                                onChange={(
+                                  event: ChangeEvent<HTMLInputElement>,
+                                ) =>
+                                  handleSphereWeeklyTargetChange(
+                                    item.sphereId,
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                          )}
+                        </div>
                       </div>
-                    </details>
+
+                      <progress
+                        className="weekly-progress-bar"
+                        max={progressMax}
+                        value={progressValue}
+                        style={
+                          {
+                            '--progress-color': item.barColor,
+                          } as CSSProperties
+                        }
+                      />
+
+                      {item.isActivitySphere && (
+                        <details className="weekly-progress-settings">
+                          <summary>Настройки</summary>
+                          <div className="sphere-plan-settings">
+                            <span className="sphere-plan-template-name">
+                              {item.sphereId === 'sphere-fitness'
+                                ? 'Тренировка'
+                                : (sphereTemplates[0]?.name ?? 'Действие')}
+                            </span>
+
+                            {item.sphereId !== 'sphere-fitness' && (
+                              <label className="sphere-plan-target">
+                                Метрика:
+                                <select
+                                  value={activityPlan?.metric ?? 'count'}
+                                  onChange={(
+                                    event: ChangeEvent<HTMLSelectElement>,
+                                  ) =>
+                                    handleSphereMetricChange(
+                                      item.sphereId,
+                                      event.target.value,
+                                    )
+                                  }
+                                >
+                                  <option value="count">Количество</option>
+                                  <option value="quantity">Результат</option>
+                                  <option value="minutes">Минуты</option>
+                                </select>
+                              </label>
+                            )}
+
+                            <label className="sphere-plan-target">
+                              Режим:
+                              <select
+                                value={activityPlan?.frequency ?? 'daily'}
+                                onChange={(
+                                  event: ChangeEvent<HTMLSelectElement>,
+                                ) =>
+                                  handleSphereFrequencyChange(
+                                    item.sphereId,
+                                    event.target.value,
+                                  )
+                                }
+                              >
+                                <option value="daily">Ежедневно</option>
+                                <option value="weekly">За неделю</option>
+                              </select>
+                            </label>
+
+                            {(activityPlan?.frequency ?? 'daily') ===
+                              'daily' && (
+                              <label className="sphere-plan-target">
+                                Цель на день:
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={
+                                    activityPlan?.dailyTarget?.toString() ?? ''
+                                  }
+                                  onChange={(
+                                    event: ChangeEvent<HTMLInputElement>,
+                                  ) =>
+                                    handleSphereDailyTargetChange(
+                                      item.sphereId,
+                                      event.target.value,
+                                    )
+                                  }
+                                />
+                              </label>
+                            )}
+
+                            <label className="sphere-plan-target">
+                              Цель на неделю:
+                              <input
+                                type="number"
+                                min="1"
+                                value={
+                                  activityPlan?.weeklyTarget?.toString() ?? ''
+                                }
+                                onChange={(
+                                  event: ChangeEvent<HTMLInputElement>,
+                                ) =>
+                                  handleSphereWeeklyTargetChange(
+                                    item.sphereId,
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+            <section
+              className="song-section"
+              aria-labelledby="song-section-heading"
+            >
+              <div className="section-heading">
+                <h2 id="song-section-heading">Песни</h2>
+              </div>
+
+              <form
+                className="song-search-form"
+                onSubmit={handleSongSearchSubmit}
+              >
+                <div className="form-field">
+                  <label htmlFor="song-search">Найти песню в Songsterr</label>
+
+                  <input
+                    id="song-search"
+                    type="text"
+                    value={songSearchQuery}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setSongSearchQuery(event.target.value)
+                    }
+                    placeholder="Например: Sum 41 - Fat Lip"
+                  />
+                </div>
+
+                <button type="submit" disabled={isSongSearchLoading}>
+                  Найти
+                </button>
+
+                <a
+                  className="button-secondary"
+                  href={`https://www.songsterr.com/search?pattern=${encodeURIComponent(
+                    songSearchQuery,
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Открыть поиск
+                </a>
+              </form>
+
+              {isSongSearchLoading && (
+                <p className="form-hint" role="status">
+                  Ищу песни в Songsterr…
+                </p>
+              )}
+
+              {songSearchError && (
+                <p className="form-error" role="alert">
+                  {songSearchError}
+                </p>
+              )}
+
+              {songSuggestions.length > 0 && (
+                <ul className="song-suggestions">
+                  {songSuggestions.map((suggestion) => {
+                    const artistName = suggestion.artist?.name?.trim() ?? '';
+                    const suggestionTitle = artistName
+                      ? `${artistName} - ${suggestion.title}`
+                      : suggestion.title;
+
+                    return (
+                      <li key={suggestion.id}>
+                        <span>{suggestionTitle}</span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAddSongFromSuggestion(suggestion)
+                          }
+                        >
+                          Добавить
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {songSearchQuery.trim() !== '' && (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={handleAddSongFromQuery}
+                >
+                  Добавить введённое
+                </button>
+              )}
+
+              {songs.length === 0 ? (
+                <div className="empty-state">
+                  <h3>Пока нет песен</h3>
+                  <p>Добавь песни, к которым хочешь вернуться позже.</p>
+                </div>
+              ) : (
+                <ul className="song-list">
+                  {songs.map((song) => (
+                    <li
+                      className={
+                        song.isLearned ? 'song-item learned' : 'song-item'
+                      }
+                      key={song.id}
+                    >
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={song.isLearned}
+                          onChange={() => handleToggleSongLearned(song.id)}
+                        />
+                        <span>{song.title}</span>
+                      </label>
+
+                      <div className="song-item-actions">
+                        {song.songsterrUrl && (
+                          <a
+                            href={song.songsterrUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Songsterr
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          className="button-danger"
+                          onClick={() => handleDeleteSong(song.id)}
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section
+              className="activity-section"
+              aria-labelledby="activity-log-heading"
+            >
+              <div className="section-heading">
+                <h2 id="activity-log-heading">Журнал активностей</h2>
+
+                <button
+                  type="button"
+                  onClick={handleOpenCreateForm}
+                  disabled={isFormOpen}
+                  aria-expanded={isFormOpen}
+                  aria-controls="activity-form-container"
+                >
+                  + Добавить активность
+                </button>
+
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={exportActivities}
+                >
+                  Экспорт JSON
+                </button>
+
+                <label className="button-secondary import-button">
+                  Импорт JSON
+                  <input
+                    type="file"
+                    accept="application/json"
+                    onChange={handleImportFile}
+                  />
+                </label>
+
+                {importError && (
+                  <p className="form-error" role="alert">
+                    {importError}
+                  </p>
+                )}
+
+                {importedCount > 0 && !importError && (
+                  <p className="form-success" role="status">
+                    Импортировано новых записей: {importedCount}
+                  </p>
+                )}
+              </div>
+
+              {isFormOpen && (
+                <div id="activity-form-container">
+                  <button
+                    type="button"
+                    className="modal-close"
+                    aria-label="Закрыть"
+                    onClick={handleCloseForm}
+                  >
+                    ×
+                  </button>
+                  <ActivityForm
+                    key={editingActivity?.id ?? 'new'}
+                    spheres={initialSpheres}
+                    templates={initialActionTemplates}
+                    activity={editingActivity}
+                    onSave={handleSaveActivity}
+                    onCancel={handleCloseForm}
+                  />{' '}
+                </div>
+              )}
+
+              <div className="form-field activity-filter">
+                <label htmlFor="activity-sphere-filter">Показать записи</label>
+
+                <select
+                  id="activity-sphere-filter"
+                  value={sphereFilter}
+                  onChange={(event) => setSphereFilter(event.target.value)}
+                >
+                  <option value="all">Все сферы</option>
+
+                  {initialSpheres.map((sphere) => (
+                    <option key={sphere.id} value={sphere.id}>
+                      {sphere.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {sortedActivities.length === 0 ? (
+                <div className="empty-state">
+                  <h3>
+                    {activities.length === 0
+                      ? 'Пока нет активностей'
+                      : 'В этой сфере пока нет активностей'}
+                  </h3>
+
+                  <p>
+                    {activities.length === 0
+                      ? 'Добавь первое действие — оно появится в журнале.'
+                      : 'Выбери другую сферу или добавь новую запись.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="activity-groups">
+                  {activityDates.map((date) => (
+                    <section className="activity-date-group" key={date}>
+                      <h3>{formatActivityDate(date)}</h3>
+
+                      <div className="table-scroll">
+                        <table className="activity-table">
+                          <caption className="visually-hidden">
+                            Активности за {formatActivityDate(date)}
+                          </caption>
+
+                          <thead>
+                            <tr>
+                              <th scope="col">Сфера</th>
+                              <th scope="col">Действие</th>
+                              <th scope="col">Результат</th>
+                              <th scope="col">Заметка</th>
+                              <th scope="col">Действия</th>{' '}
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {sortedActivities
+                              .filter((activity) => activity.date === date)
+                              .map((activity) => {
+                                const template = initialActionTemplates.find(
+                                  (item) => item.id === activity.templateId,
+                                );
+
+                                const sphere = initialSpheres.find(
+                                  (item) => item.id === template?.sphereId,
+                                );
+
+                                const unit =
+                                  template?.kind === 'quantity'
+                                    ? template.unit
+                                    : undefined;
+
+                                return (
+                                  <tr key={activity.id}>
+                                    <td>
+                                      {sphere?.name ?? 'Неизвестная сфера'}
+                                    </td>
+
+                                    <td>
+                                      {template?.name ?? 'Неизвестное действие'}
+                                    </td>
+
+                                    <td>
+                                      {formatActivityResult(
+                                        activity.result,
+                                        unit,
+                                      )}
+                                    </td>
+
+                                    <td className="activity-note">
+                                      {activity.note || '—'}
+                                    </td>
+
+                                    <td>
+                                      <button
+                                        type="button"
+                                        className="button-secondary"
+                                        onClick={() =>
+                                          handleOpenEditForm(activity)
+                                        }
+                                        disabled={isFormOpen}
+                                        aria-label={`Изменить: ${
+                                          template?.name ?? 'активность'
+                                        } за ${formatActivityDate(activity.date)}`}
+                                      >
+                                        Изменить
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="button-danger"
+                                        onClick={() =>
+                                          handleDeleteActivity(activity.id)
+                                        }
+                                        disabled={isFormOpen}
+                                        aria-label={`Удалить: ${
+                                          template?.name ?? 'активность'
+                                        } за ${formatActivityDate(activity.date)}`}
+                                      >
+                                        Удалить
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+
+              <section
+                className="project-section"
+                aria-labelledby="projects-heading"
+              >
+                <h2 id="projects-heading">Проекты</h2>
+                <form className="task-form" onSubmit={handleSaveProjectPlan}>
+                  <div className="form-field">
+                    <label htmlFor="project-daily-target">
+                      Дневной план, подзадач
+                    </label>
+
+                    <input
+                      id="project-daily-target"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={projectDailyTarget}
+                      onChange={(event) => {
+                        setProjectDailyTarget(event.target.value);
+                        setProjectPlanMessage('');
+                      }}
+                      placeholder="Например: 2"
+                      required
+                    />
+                  </div>
+
+                  <button type="submit" className="button-primary">
+                    Сохранить план
+                  </button>
+
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={handleClearProjectPlan}
+                    disabled={!projectPlan}
+                  >
+                    Убрать план
+                  </button>
+                </form>
+
+                <p className="task-summary">
+                  {projectPlan?.dailyTarget != null
+                    ? `План: ${projectPlan.dailyTarget} подзадач в день · ${projectPlan.dailyTarget * 7} подзадач в неделю`
+                    : 'План подзадач не задан'}
+                </p>
+
+                <p className="form-hint">
+                  Один общий план на подзадачи всех проектов.
+                </p>
+
+                {projectPlanMessage && (
+                  <p className="form-hint" role="status">
+                    {projectPlanMessage}
+                  </p>
+                )}
+                <div className="personal-plan-progress">
+                  <p className="task-summary" role="status">
+                    {projectPlan?.dailyTarget != null
+                      ? `Подзадачи сегодня: ${completedProjectTasksTodayCount} / ${projectPlan.dailyTarget} · ${Math.round(
+                          (completedProjectTasksTodayCount /
+                            projectPlan.dailyTarget) *
+                            100,
+                        )}%`
+                      : `Подзадач выполнено сегодня: ${completedProjectTasksTodayCount} · План не задан`}
+                  </p>
+
+                  {projectPlan?.dailyTarget != null && (
+                    <progress
+                      className="personal-plan-progress-bar"
+                      aria-label="Выполнение дневного плана подзадач проектов"
+                      max={projectPlan.dailyTarget}
+                      value={Math.min(
+                        completedProjectTasksTodayCount,
+                        projectPlan.dailyTarget,
+                      )}
+                    />
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-        <section
-          className="song-section"
-          aria-labelledby="song-section-heading"
-        >
-          <div className="section-heading">
-            <h2 id="song-section-heading">Песни</h2>
-          </div>
 
-          <form className="song-search-form" onSubmit={handleSongSearchSubmit}>
-            <div className="form-field">
-              <label htmlFor="song-search">Найти песню в Songsterr</label>
+                <div className="personal-plan-progress">
+                  <p className="form-hint">
+                    Неделя: {currentWeek.start} — {currentWeek.end}
+                  </p>
 
-              <input
-                id="song-search"
-                type="text"
-                value={songSearchQuery}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setSongSearchQuery(event.target.value)
-                }
-                placeholder="Например: Sum 41 - Fat Lip"
-              />
-            </div>
+                  <p className="task-summary" role="status">
+                    {projectPlan?.dailyTarget != null
+                      ? `Подзадачи за неделю: ${completedProjectTasksThisWeekCount} / ${projectPlan.dailyTarget * 7} · ${Math.round(
+                          (completedProjectTasksThisWeekCount /
+                            (projectPlan.dailyTarget * 7)) *
+                            100,
+                        )}%`
+                      : `Подзадач выполнено за неделю: ${completedProjectTasksThisWeekCount} · План не задан`}
+                  </p>
 
-            <button type="submit" disabled={isSongSearchLoading}>
-              Найти
-            </button>
-
-            <a
-              className="button-secondary"
-              href={`https://www.songsterr.com/search?pattern=${encodeURIComponent(
-                songSearchQuery,
-              )}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Открыть поиск
-            </a>
-          </form>
-
-          {isSongSearchLoading && (
-            <p className="form-hint" role="status">
-              Ищу песни в Songsterr…
-            </p>
-          )}
-
-          {songSearchError && (
-            <p className="form-error" role="alert">
-              {songSearchError}
-            </p>
-          )}
-
-          {songSuggestions.length > 0 && (
-            <ul className="song-suggestions">
-              {songSuggestions.map((suggestion) => {
-                const artistName = suggestion.artist?.name?.trim() ?? '';
-                const suggestionTitle = artistName
-                  ? `${artistName} - ${suggestion.title}`
-                  : suggestion.title;
-
-                return (
-                  <li key={suggestion.id}>
-                    <span>{suggestionTitle}</span>
-
-                    <button
-                      type="button"
-                      onClick={() => handleAddSongFromSuggestion(suggestion)}
-                    >
-                      Добавить
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {songSearchQuery.trim() !== '' && (
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={handleAddSongFromQuery}
-            >
-              Добавить введённое
-            </button>
-          )}
-
-          {songs.length === 0 ? (
-            <div className="empty-state">
-              <h3>Пока нет песен</h3>
-              <p>Добавь песни, к которым хочешь вернуться позже.</p>
-            </div>
-          ) : (
-            <ul className="song-list">
-              {songs.map((song) => (
-                <li
-                  className={song.isLearned ? 'song-item learned' : 'song-item'}
-                  key={song.id}
-                >
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={song.isLearned}
-                      onChange={() => handleToggleSongLearned(song.id)}
+                  {projectPlan?.dailyTarget != null && (
+                    <progress
+                      className="personal-plan-progress-bar"
+                      aria-label="Выполнение недельного плана подзадач проектов"
+                      max={projectPlan.dailyTarget * 7}
+                      value={Math.min(
+                        completedProjectTasksThisWeekCount,
+                        projectPlan.dailyTarget * 7,
+                      )}
                     />
-                    <span>{song.title}</span>
-                  </label>
+                  )}
+                </div>
+                <div className="form-field project-search">
+                  <label htmlFor="project-search">Поиск</label>
 
-                  <div className="song-item-actions">
-                    {song.songsterrUrl && (
-                      <a
-                        href={song.songsterrUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                  <input
+                    id="project-search"
+                    type="text"
+                    value={projectSearchQuery}
+                    onChange={(event) =>
+                      setProjectSearchQuery(event.target.value)
+                    }
+                    placeholder="Поиск по проектам и подзадачам"
+                  />
+                </div>
+                <div className="project-export">
+                  <button type="button" onClick={handleExportProjects}>
+                    Экспортировать JSON
+                  </button>
+                </div>
+                <div className="project-import">
+                  <div className="form-field">
+                    <label htmlFor="project-import-file">Импорт JSON</label>
+
+                    <input
+                      id="project-import-file"
+                      type="file"
+                      accept="application/json"
+                      onChange={handleSelectImportFile}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!importFile}
+                    onClick={handleRequestImport}
+                  >
+                    Импортировать
+                  </button>
+                </div>
+                {projectImportMessage && (
+                  <p role="status" aria-live="polite">
+                    {projectImportMessage}
+                  </p>
+                )}
+                <p className="section-stats">
+                  Проектов: {projects.length} · Подзадач: {projectTasks.length}{' '}
+                  · Выполнено:{' '}
+                  {projectTasks.filter((task) => task.isCompleted).length}
+                </p>
+
+                <form className="task-form" onSubmit={handleAddProject}>
+                  <div className="form-field">
+                    <label htmlFor="new-project-title">Новый проект</label>
+
+                    <input
+                      id="new-project-title"
+                      type="text"
+                      value={newProjectTitle}
+                      onChange={(event) =>
+                        setNewProjectTitle(event.target.value)
+                      }
+                      placeholder="Например: BatyaOS"
+                      required
+                    />
+                  </div>
+
+                  <button type="submit" disabled={!newProjectTitle.trim()}>
+                    Создать проект
+                  </button>
+                </form>
+
+                {getVisibleProjects().length === 0 ? (
+                  <p className="empty-state">
+                    Проектов пока нет. Создай первый.
+                  </p>
+                ) : (
+                  <ul className="project-list">
+                    {getVisibleProjects().map((project) => (
+                      <li className="project-card" key={project.id}>
+                        {editingProjectId === project.id ? (
+                          <div className="project-editing">
+                            <div className="form-field">
+                              <label htmlFor={`project-title-${project.id}`}>
+                                Название проекта
+                              </label>
+
+                              <input
+                                id={`project-title-${project.id}`}
+                                type="text"
+                                value={editingProjectTitle}
+                                onChange={(event) =>
+                                  setEditingProjectTitle(event.target.value)
+                                }
+                                required
+                              />
+                            </div>
+
+                            <div className="project-editing-actions">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleSaveProjectTitle(project.id)
+                                }
+                              >
+                                Сохранить
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleCancelProjectEditing}
+                              >
+                                Отмена
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="project-header">
+                            <h3>{project.title}</h3>
+                            <div className="project-task-filters">
+                              {(
+                                [
+                                  ['all', 'Все'],
+                                  ['active', 'Активные'],
+                                  ['completed', 'Выполненные'],
+                                ] as const
+                              ).map(([filter, label]) => (
+                                <button
+                                  key={filter}
+                                  type="button"
+                                  className={
+                                    (projectTaskFilters[project.id] ??
+                                      'all') === filter
+                                      ? 'filter-button active'
+                                      : 'filter-button'
+                                  }
+                                  onClick={() =>
+                                    handleSetProjectTaskFilter(
+                                      project.id,
+                                      filter,
+                                    )
+                                  }
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                            {projectTasks.some(
+                              (task) =>
+                                task.projectId === project.id &&
+                                task.isCompleted,
+                            ) && (
+                              <button
+                                type="button"
+                                className="clear-completed-button"
+                                onClick={() =>
+                                  handleClearCompletedProjectTasks(project.id)
+                                }
+                              >
+                                Удалить выполненные
+                              </button>
+                            )}
+                            <div className="project-progress">
+                              <p className="project-progress-label">
+                                Выполнено{' '}
+                                {getProjectProgress(project.id).completedCount}{' '}
+                                из {getProjectProgress(project.id).totalCount} —{' '}
+                                {getProjectProgress(project.id).percent}%
+                              </p>
+
+                              <div
+                                className="project-progress-bar"
+                                role="progressbar"
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={
+                                  getProjectProgress(project.id).percent
+                                }
+                                aria-label={`Прогресс проекта: ${project.title}`}
+                              >
+                                <div
+                                  className="project-progress-fill"
+                                  style={
+                                    {
+                                      width: `${getProjectProgress(project.id).percent}%`,
+                                      '--progress-color':
+                                        getProjectProgress(project.id)
+                                          .completedCount === 0
+                                          ? '#9aa0b5'
+                                          : `hsl(${
+                                              Math.min(
+                                                getProjectProgress(project.id)
+                                                  .percent,
+                                                100,
+                                              ) * 1.2
+                                            } 80% 55%)`,
+                                    } as CSSProperties
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <div className="project-actions">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleStartProjectEditing(
+                                    project.id,
+                                    project.title,
+                                  )
+                                }
+                              >
+                                Изменить
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRequestProjectDeletion(project)
+                                }
+                              >
+                                Удалить
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <form
+                          className="task-form"
+                          onSubmit={(event) =>
+                            handleAddProjectTask(event, project.id)
+                          }
+                        >
+                          <div className="form-field">
+                            <label htmlFor={`project-task-${project.id}`}>
+                              Новая подзадача
+                            </label>
+
+                            <input
+                              id={`project-task-${project.id}`}
+                              type="text"
+                              value={newProjectTaskTitle}
+                              onChange={(event) =>
+                                setNewProjectTaskTitle(event.target.value)
+                              }
+                              placeholder="Например: Добавить типы"
+                              required
+                            />
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={!newProjectTaskTitle.trim()}
+                          >
+                            Добавить
+                          </button>
+                        </form>
+
+                        {getFilteredProjectTasks(project.id).length === 0 ? (
+                          <p className="empty-state">Подзадач пока нет.</p>
+                        ) : (
+                          <ul className="task-list">
+                            {getFilteredProjectTasks(project.id).map((task) => (
+                              <li
+                                className={
+                                  task.isCompleted
+                                    ? 'task-item completed'
+                                    : 'task-item'
+                                }
+                                key={task.id}
+                              >
+                                {editingProjectTaskId === task.id ? (
+                                  <div className="task-editing">
+                                    <div className="form-field">
+                                      <label
+                                        htmlFor={`project-task-title-${task.id}`}
+                                      >
+                                        Название подзадачи
+                                      </label>
+
+                                      <input
+                                        id={`project-task-title-${task.id}`}
+                                        type="text"
+                                        value={editingProjectTaskTitle}
+                                        onChange={(event) =>
+                                          setEditingProjectTaskTitle(
+                                            event.target.value,
+                                          )
+                                        }
+                                        required
+                                      />
+                                    </div>
+
+                                    <div className="task-editing-actions">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleSaveProjectTaskTitle(task.id)
+                                        }
+                                      >
+                                        Сохранить
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={handleCancelProjectTaskEditing}
+                                      >
+                                        Отмена
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <label className="task-label">
+                                      <input
+                                        type="checkbox"
+                                        checked={task.isCompleted}
+                                        onChange={() =>
+                                          handleToggleProjectTask(task.id)
+                                        }
+                                      />
+
+                                      <span className="task-title">
+                                        {task.title}
+                                      </span>
+                                    </label>
+
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleStartProjectTaskEditing(
+                                          task.id,
+                                          task.title,
+                                        )
+                                      }
+                                    >
+                                      Изменить
+                                    </button>
+                                  </>
+                                )}
+
+                                <button
+                                  type="button"
+                                  className="task-delete"
+                                  onClick={() =>
+                                    handleDeleteProjectTask(task.id)
+                                  }
+                                >
+                                  Удалить
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="task-section">
+                <h2>Личный чеклист</h2>
+
+                <form className="task-form" onSubmit={handleSavePersonalPlan}>
+                  <div className="form-field">
+                    <label htmlFor="personal-daily-target">
+                      Дневной план, задач
+                    </label>
+
+                    <input
+                      id="personal-daily-target"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={personalDailyTarget}
+                      onChange={(event) => {
+                        setPersonalDailyTarget(event.target.value);
+                        setPersonalPlanMessage('');
+                      }}
+                      placeholder="Например: 3"
+                      required
+                    />
+                  </div>
+
+                  <button type="submit" className="button-primary">
+                    Сохранить план
+                  </button>
+
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={handleClearPersonalPlan}
+                    disabled={!personalPlan}
+                  >
+                    Убрать план
+                  </button>
+                </form>
+
+                <p className="task-summary">
+                  {personalPlan?.dailyTarget != null
+                    ? `План: ${personalPlan.dailyTarget} задач в день · ${personalPlan.dailyTarget * 7} задач в неделю`
+                    : 'План не задан'}
+                </p>
+
+                {personalPlanMessage && (
+                  <p className="form-hint" role="status">
+                    {personalPlanMessage}
+                  </p>
+                )}
+
+                <p className="task-summary" role="status">
+                  {tasks.length === 0
+                    ? 'Общий прогресс: пока нет задач'
+                    : `Всего выполнено: ${completedTasksCount} из ${tasks.length} · ${taskCompletionPercent}%`}
+                </p>
+
+                <div className="personal-plan-progress">
+                  <p className="task-summary" role="status">
+                    {personalPlan?.dailyTarget != null
+                      ? `План на сегодня: ${completedTodayCount} / ${personalPlan.dailyTarget} · ${Math.round(
+                          (completedTodayCount / personalPlan.dailyTarget) *
+                            100,
+                        )}%`
+                      : `Выполнено сегодня: ${completedTodayCount} · План не задан`}
+                  </p>
+
+                  {personalPlan?.dailyTarget != null && (
+                    <progress
+                      className="personal-plan-progress-bar"
+                      aria-label="Выполнение дневного плана личного чеклиста"
+                      max={personalPlan.dailyTarget}
+                      value={Math.min(
+                        completedTodayCount,
+                        personalPlan.dailyTarget,
+                      )}
+                      style={
+                        {
+                          '--progress-color':
+                            completedTodayCount === 0
+                              ? '#9aa0b5'
+                              : `hsl(${
+                                  Math.min(
+                                    completedTodayCount /
+                                      personalPlan.dailyTarget,
+                                    1,
+                                  ) * 120
+                                } 80% 55%)`,
+                        } as CSSProperties
+                      }
+                    />
+                  )}
+                </div>
+
+                <div className="task-actions">
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={handleClearCompletedTasks}
+                    disabled={
+                      editingTaskId !== null ||
+                      !tasks.some((task) => task.isCompleted)
+                    }
+                  >
+                    Очистить выполненные
+                  </button>
+
+                  <p className="form-hint">
+                    Удаляет все выполненные задачи без возможности
+                    восстановления.
+                  </p>
+                </div>
+
+                <div className="personal-plan-progress">
+                  <p className="form-hint">
+                    Неделя: {currentWeek.start} — {currentWeek.end}
+                  </p>
+
+                  <p className="task-summary" role="status">
+                    {personalPlan?.dailyTarget != null
+                      ? `План на неделю: ${completedThisWeekCount} / ${personalPlan.dailyTarget * 7} · ${Math.round(
+                          (completedThisWeekCount /
+                            (personalPlan.dailyTarget * 7)) *
+                            100,
+                        )}%`
+                      : `Выполнено за неделю: ${completedThisWeekCount} · План не задан`}
+                  </p>
+
+                  {personalPlan?.dailyTarget != null && (
+                    <progress
+                      className="personal-plan-progress-bar"
+                      aria-label="Выполнение недельного плана личного чеклиста"
+                      max={personalPlan.dailyTarget * 7}
+                      value={Math.min(
+                        completedThisWeekCount,
+                        personalPlan.dailyTarget * 7,
+                      )}
+                    />
+                  )}
+                </div>
+
+                <form className="task-form" onSubmit={handleAddTask}>
+                  <div className="form-field">
+                    <label htmlFor="new-task-title">Новая задача</label>
+
+                    <input
+                      id="new-task-title"
+                      type="text"
+                      value={newTaskTitle}
+                      onChange={(event) => setNewTaskTitle(event.target.value)}
+                      placeholder="Например: разобрать почту"
+                      required
+                    />
+                  </div>
+
+                  <button type="submit" className="button-primary">
+                    Добавить
+                  </button>
+                </form>
+
+                {tasks.length === 0 ? (
+                  <p className="empty-state">Задач пока нет. Добавь первую.</p>
+                ) : (
+                  <ul className="task-list">
+                    {tasks.map((task) => (
+                      <li
+                        className={
+                          task.isCompleted ? 'task-item completed' : 'task-item'
+                        }
+                        key={task.id}
                       >
-                        Songsterr
-                      </a>
-                    )}
+                        {editingTaskId === task.id ? (
+                          <form
+                            className="task-edit-form"
+                            onSubmit={handleSaveTask}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Escape') {
+                                event.preventDefault();
+                                handleCancelEditTask();
+                              }
+                            }}
+                          >
+                            <div className="form-field">
+                              <label htmlFor={`edit-task-${task.id}`}>
+                                Название задачи
+                              </label>
+
+                              <input
+                                id={`edit-task-${task.id}`}
+                                type="text"
+                                value={editingTaskTitle}
+                                onChange={(event) =>
+                                  setEditingTaskTitle(event.target.value)
+                                }
+                                required
+                              />
+                            </div>
+
+                            <div className="task-item-actions">
+                              <button
+                                type="submit"
+                                disabled={!editingTaskTitle.trim()}
+                              >
+                                Сохранить
+                              </button>
+
+                              <button
+                                type="button"
+                                className="button-secondary"
+                                onClick={handleCancelEditTask}
+                              >
+                                Отмена
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={task.isCompleted}
+                                onChange={() => handleToggleTask(task.id)}
+                              />
+
+                              <span>{task.title}</span>
+                            </label>
+
+                            <div className="task-item-actions">
+                              <button
+                                type="button"
+                                className="button-secondary"
+                                onClick={() => handleStartEditTask(task)}
+                                disabled={editingTaskId !== null}
+                                aria-label={`Изменить задачу: ${task.title}`}
+                              >
+                                Изменить
+                              </button>
+
+                              <button
+                                type="button"
+                                className="button-danger"
+                                onClick={() => handleDeleteTask(task.id)}
+                                aria-label={`Удалить задачу: ${task.title}`}
+                              >
+                                Удалить
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <p className="footnote">
+                Активности и задачи сохраняются локально на этом устройстве.
+              </p>
+            </section>
+
+            {activityToDelete && (
+              <div className="modal-backdrop" role="presentation">
+                <div
+                  className="modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="delete-activity-title"
+                >
+                  <h2 id="delete-activity-title">Удалить активность?</h2>
+
+                  <button
+                    type="button"
+                    className="modal-close"
+                    aria-label="Закрыть"
+                    onClick={cancelDeleteActivity}
+                  >
+                    ×
+                  </button>
+
+                  <p> Запись будет удалена без возможности восстановить её </p>
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="modal-button-cancel"
+                      onClick={cancelDeleteActivity}
+                    >
+                      Отмена
+                    </button>
 
                     <button
                       type="button"
-                      className="button-danger"
-                      onClick={() => handleDeleteSong(song.id)}
+                      className="modal-button-action"
+                      onClick={confirmDeleteActivity}
                     >
                       Удалить
                     </button>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section
-          className="activity-section"
-          aria-labelledby="activity-log-heading"
-        >
-          <div className="section-heading">
-            <h2 id="activity-log-heading">Журнал активностей</h2>
-
-            <button
-              type="button"
-              onClick={handleOpenCreateForm}
-              disabled={isFormOpen}
-              aria-expanded={isFormOpen}
-              aria-controls="activity-form-container"
-            >
-              + Добавить активность
-            </button>
-
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={exportActivities}
-            >
-              Экспорт JSON
-            </button>
-
-            <label className="button-secondary import-button">
-              Импорт JSON
-              <input
-                type="file"
-                accept="application/json"
-                onChange={handleImportFile}
-              />
-            </label>
-
-            {importError && (
-              <p className="form-error" role="alert">
-                {importError}
-              </p>
-            )}
-
-            {importedCount > 0 && !importError && (
-              <p className="form-success" role="status">
-                Импортировано новых записей: {importedCount}
-              </p>
-            )}
-          </div>
-
-          {isFormOpen && (
-            <div id="activity-form-container">
-              <button
-                type="button"
-                className="modal-close"
-                aria-label="Закрыть"
-                onClick={handleCloseForm}
-              >
-                ×
-              </button>
-              <ActivityForm
-                key={editingActivity?.id ?? 'new'}
-                spheres={initialSpheres}
-                templates={initialActionTemplates}
-                activity={editingActivity}
-                onSave={handleSaveActivity}
-                onCancel={handleCloseForm}
-              />{' '}
-            </div>
-          )}
-
-          <div className="form-field activity-filter">
-            <label htmlFor="activity-sphere-filter">Показать записи</label>
-
-            <select
-              id="activity-sphere-filter"
-              value={sphereFilter}
-              onChange={(event) => setSphereFilter(event.target.value)}
-            >
-              <option value="all">Все сферы</option>
-
-              {initialSpheres.map((sphere) => (
-                <option key={sphere.id} value={sphere.id}>
-                  {sphere.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {sortedActivities.length === 0 ? (
-            <div className="empty-state">
-              <h3>
-                {activities.length === 0
-                  ? 'Пока нет активностей'
-                  : 'В этой сфере пока нет активностей'}
-              </h3>
-
-              <p>
-                {activities.length === 0
-                  ? 'Добавь первое действие — оно появится в журнале.'
-                  : 'Выбери другую сферу или добавь новую запись.'}
-              </p>
-            </div>
-          ) : (
-            <div className="activity-groups">
-              {activityDates.map((date) => (
-                <section className="activity-date-group" key={date}>
-                  <h3>{formatActivityDate(date)}</h3>
-
-                  <div className="table-scroll">
-                    <table className="activity-table">
-                      <caption className="visually-hidden">
-                        Активности за {formatActivityDate(date)}
-                      </caption>
-
-                      <thead>
-                        <tr>
-                          <th scope="col">Сфера</th>
-                          <th scope="col">Действие</th>
-                          <th scope="col">Результат</th>
-                          <th scope="col">Заметка</th>
-                          <th scope="col">Действия</th>{' '}
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {sortedActivities
-                          .filter((activity) => activity.date === date)
-                          .map((activity) => {
-                            const template = initialActionTemplates.find(
-                              (item) => item.id === activity.templateId,
-                            );
-
-                            const sphere = initialSpheres.find(
-                              (item) => item.id === template?.sphereId,
-                            );
-
-                            const unit =
-                              template?.kind === 'quantity'
-                                ? template.unit
-                                : undefined;
-
-                            return (
-                              <tr key={activity.id}>
-                                <td>{sphere?.name ?? 'Неизвестная сфера'}</td>
-
-                                <td>
-                                  {template?.name ?? 'Неизвестное действие'}
-                                </td>
-
-                                <td>
-                                  {formatActivityResult(activity.result, unit)}
-                                </td>
-
-                                <td className="activity-note">
-                                  {activity.note || '—'}
-                                </td>
-
-                                <td>
-                                  <button
-                                    type="button"
-                                    className="button-secondary"
-                                    onClick={() => handleOpenEditForm(activity)}
-                                    disabled={isFormOpen}
-                                    aria-label={`Изменить: ${
-                                      template?.name ?? 'активность'
-                                    } за ${formatActivityDate(activity.date)}`}
-                                  >
-                                    Изменить
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="button-danger"
-                                    onClick={() =>
-                                      handleDeleteActivity(activity.id)
-                                    }
-                                    disabled={isFormOpen}
-                                    aria-label={`Удалить: ${
-                                      template?.name ?? 'активность'
-                                    } за ${formatActivityDate(activity.date)}`}
-                                  >
-                                    Удалить
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
-
-          <section
-            className="project-section"
-            aria-labelledby="projects-heading"
-          >
-            <h2 id="projects-heading">Проекты</h2>
-            <form className="task-form" onSubmit={handleSaveProjectPlan}>
-              <div className="form-field">
-                <label htmlFor="project-daily-target">
-                  Дневной план, подзадач
-                </label>
-
-                <input
-                  id="project-daily-target"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={projectDailyTarget}
-                  onChange={(event) => {
-                    setProjectDailyTarget(event.target.value);
-                    setProjectPlanMessage('');
-                  }}
-                  placeholder="Например: 2"
-                  required
-                />
+                </div>
               </div>
-
-              <button type="submit" className="button-primary">
-                Сохранить план
-              </button>
-
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={handleClearProjectPlan}
-                disabled={!projectPlan}
-              >
-                Убрать план
-              </button>
-            </form>
-
-            <p className="task-summary">
-              {projectPlan?.dailyTarget != null
-                ? `План: ${projectPlan.dailyTarget} подзадач в день · ${projectPlan.dailyTarget * 7} подзадач в неделю`
-                : 'План подзадач не задан'}
-            </p>
-
-            <p className="form-hint">
-              Один общий план на подзадачи всех проектов.
-            </p>
-
-            {projectPlanMessage && (
-              <p className="form-hint" role="status">
-                {projectPlanMessage}
-              </p>
-            )}
-            <div className="personal-plan-progress">
-              <p className="task-summary" role="status">
-                {projectPlan?.dailyTarget != null
-                  ? `Подзадачи сегодня: ${completedProjectTasksTodayCount} / ${projectPlan.dailyTarget} · ${Math.round(
-                      (completedProjectTasksTodayCount /
-                        projectPlan.dailyTarget) *
-                        100,
-                    )}%`
-                  : `Подзадач выполнено сегодня: ${completedProjectTasksTodayCount} · План не задан`}
-              </p>
-
-              {projectPlan?.dailyTarget != null && (
-                <progress
-                  className="personal-plan-progress-bar"
-                  aria-label="Выполнение дневного плана подзадач проектов"
-                  max={projectPlan.dailyTarget}
-                  value={Math.min(
-                    completedProjectTasksTodayCount,
-                    projectPlan.dailyTarget,
-                  )}
-                />
-              )}
-            </div>
-
-            <div className="personal-plan-progress">
-              <p className="form-hint">
-                Неделя: {currentWeek.start} — {currentWeek.end}
-              </p>
-
-              <p className="task-summary" role="status">
-                {projectPlan?.dailyTarget != null
-                  ? `Подзадачи за неделю: ${completedProjectTasksThisWeekCount} / ${projectPlan.dailyTarget * 7} · ${Math.round(
-                      (completedProjectTasksThisWeekCount /
-                        (projectPlan.dailyTarget * 7)) *
-                        100,
-                    )}%`
-                  : `Подзадач выполнено за неделю: ${completedProjectTasksThisWeekCount} · План не задан`}
-              </p>
-
-              {projectPlan?.dailyTarget != null && (
-                <progress
-                  className="personal-plan-progress-bar"
-                  aria-label="Выполнение недельного плана подзадач проектов"
-                  max={projectPlan.dailyTarget * 7}
-                  value={Math.min(
-                    completedProjectTasksThisWeekCount,
-                    projectPlan.dailyTarget * 7,
-                  )}
-                />
-              )}
-            </div>
-            <div className="form-field project-search">
-              <label htmlFor="project-search">Поиск</label>
-
-              <input
-                id="project-search"
-                type="text"
-                value={projectSearchQuery}
-                onChange={(event) => setProjectSearchQuery(event.target.value)}
-                placeholder="Поиск по проектам и подзадачам"
-              />
-            </div>
-            <div className="project-export">
-              <button type="button" onClick={handleExportProjects}>
-                Экспортировать JSON
-              </button>
-            </div>
-            <div className="project-import">
-              <div className="form-field">
-                <label htmlFor="project-import-file">Импорт JSON</label>
-
-                <input
-                  id="project-import-file"
-                  type="file"
-                  accept="application/json"
-                  onChange={handleSelectImportFile}
-                />
-              </div>
-
-              <button
-                type="button"
-                disabled={!importFile}
-                onClick={handleRequestImport}
-              >
-                Импортировать
-              </button>
-            </div>
-            {projectImportMessage && (
-              <p role="status" aria-live="polite">
-                {projectImportMessage}
-              </p>
-            )}
-            <p className="section-stats">
-              Проектов: {projects.length} · Подзадач: {projectTasks.length} ·
-              Выполнено:{' '}
-              {projectTasks.filter((task) => task.isCompleted).length}
-            </p>
-
-            <form className="task-form" onSubmit={handleAddProject}>
-              <div className="form-field">
-                <label htmlFor="new-project-title">Новый проект</label>
-
-                <input
-                  id="new-project-title"
-                  type="text"
-                  value={newProjectTitle}
-                  onChange={(event) => setNewProjectTitle(event.target.value)}
-                  placeholder="Например: BatyaOS"
-                  required
-                />
-              </div>
-
-              <button type="submit" disabled={!newProjectTitle.trim()}>
-                Создать проект
-              </button>
-            </form>
-
-            {getVisibleProjects().length === 0 ? (
-              <p className="empty-state">Проектов пока нет. Создай первый.</p>
-            ) : (
-              <ul className="project-list">
-                {getVisibleProjects().map((project) => (
-                  <li className="project-card" key={project.id}>
-                    {editingProjectId === project.id ? (
-                      <div className="project-editing">
-                        <div className="form-field">
-                          <label htmlFor={`project-title-${project.id}`}>
-                            Название проекта
-                          </label>
-
-                          <input
-                            id={`project-title-${project.id}`}
-                            type="text"
-                            value={editingProjectTitle}
-                            onChange={(event) =>
-                              setEditingProjectTitle(event.target.value)
-                            }
-                            required
-                          />
-                        </div>
-
-                        <div className="project-editing-actions">
-                          <button
-                            type="button"
-                            onClick={() => handleSaveProjectTitle(project.id)}
-                          >
-                            Сохранить
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={handleCancelProjectEditing}
-                          >
-                            Отмена
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="project-header">
-                        <h3>{project.title}</h3>
-                        <div className="project-task-filters">
-                          {(
-                            [
-                              ['all', 'Все'],
-                              ['active', 'Активные'],
-                              ['completed', 'Выполненные'],
-                            ] as const
-                          ).map(([filter, label]) => (
-                            <button
-                              key={filter}
-                              type="button"
-                              className={
-                                (projectTaskFilters[project.id] ?? 'all') ===
-                                filter
-                                  ? 'filter-button active'
-                                  : 'filter-button'
-                              }
-                              onClick={() =>
-                                handleSetProjectTaskFilter(project.id, filter)
-                              }
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                        {projectTasks.some(
-                          (task) =>
-                            task.projectId === project.id && task.isCompleted,
-                        ) && (
-                          <button
-                            type="button"
-                            className="clear-completed-button"
-                            onClick={() =>
-                              handleClearCompletedProjectTasks(project.id)
-                            }
-                          >
-                            Удалить выполненные
-                          </button>
-                        )}
-                        <div className="project-progress">
-                          <p className="project-progress-label">
-                            Выполнено{' '}
-                            {getProjectProgress(project.id).completedCount} из{' '}
-                            {getProjectProgress(project.id).totalCount} —{' '}
-                            {getProjectProgress(project.id).percent}%
-                          </p>
-
-                          <div
-                            className="project-progress-bar"
-                            role="progressbar"
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-valuenow={
-                              getProjectProgress(project.id).percent
-                            }
-                            aria-label={`Прогресс проекта: ${project.title}`}
-                          >
-                            <div
-                              className="project-progress-fill"
-                              style={
-                                {
-                                  width: `${getProjectProgress(project.id).percent}%`,
-                                  '--progress-color':
-                                    getProjectProgress(project.id)
-                                      .completedCount === 0
-                                      ? '#9aa0b5'
-                                      : `hsl(${
-                                          Math.min(
-                                            getProjectProgress(project.id)
-                                              .percent,
-                                            100,
-                                          ) * 1.2
-                                        } 80% 55%)`,
-                                } as CSSProperties
-                              }
-                            />
-                          </div>
-                        </div>
-
-                        <div className="project-actions">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleStartProjectEditing(
-                                project.id,
-                                project.title,
-                              )
-                            }
-                          >
-                            Изменить
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleRequestProjectDeletion(project)
-                            }
-                          >
-                            Удалить
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    <form
-                      className="task-form"
-                      onSubmit={(event) =>
-                        handleAddProjectTask(event, project.id)
-                      }
-                    >
-                      <div className="form-field">
-                        <label htmlFor={`project-task-${project.id}`}>
-                          Новая подзадача
-                        </label>
-
-                        <input
-                          id={`project-task-${project.id}`}
-                          type="text"
-                          value={newProjectTaskTitle}
-                          onChange={(event) =>
-                            setNewProjectTaskTitle(event.target.value)
-                          }
-                          placeholder="Например: Добавить типы"
-                          required
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={!newProjectTaskTitle.trim()}
-                      >
-                        Добавить
-                      </button>
-                    </form>
-
-                    {getFilteredProjectTasks(project.id).length === 0 ? (
-                      <p className="empty-state">Подзадач пока нет.</p>
-                    ) : (
-                      <ul className="task-list">
-                        {getFilteredProjectTasks(project.id).map((task) => (
-                          <li
-                            className={
-                              task.isCompleted
-                                ? 'task-item completed'
-                                : 'task-item'
-                            }
-                            key={task.id}
-                          >
-                            {editingProjectTaskId === task.id ? (
-                              <div className="task-editing">
-                                <div className="form-field">
-                                  <label
-                                    htmlFor={`project-task-title-${task.id}`}
-                                  >
-                                    Название подзадачи
-                                  </label>
-
-                                  <input
-                                    id={`project-task-title-${task.id}`}
-                                    type="text"
-                                    value={editingProjectTaskTitle}
-                                    onChange={(event) =>
-                                      setEditingProjectTaskTitle(
-                                        event.target.value,
-                                      )
-                                    }
-                                    required
-                                  />
-                                </div>
-
-                                <div className="task-editing-actions">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleSaveProjectTaskTitle(task.id)
-                                    }
-                                  >
-                                    Сохранить
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={handleCancelProjectTaskEditing}
-                                  >
-                                    Отмена
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                <label className="task-label">
-                                  <input
-                                    type="checkbox"
-                                    checked={task.isCompleted}
-                                    onChange={() =>
-                                      handleToggleProjectTask(task.id)
-                                    }
-                                  />
-
-                                  <span className="task-title">
-                                    {task.title}
-                                  </span>
-                                </label>
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleStartProjectTaskEditing(
-                                      task.id,
-                                      task.title,
-                                    )
-                                  }
-                                >
-                                  Изменить
-                                </button>
-                              </>
-                            )}
-
-                            <button
-                              type="button"
-                              className="task-delete"
-                              onClick={() => handleDeleteProjectTask(task.id)}
-                            >
-                              Удалить
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="task-section">
-            <h2>Личный чеклист</h2>
-
-            <form className="task-form" onSubmit={handleSavePersonalPlan}>
-              <div className="form-field">
-                <label htmlFor="personal-daily-target">
-                  Дневной план, задач
-                </label>
-
-                <input
-                  id="personal-daily-target"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={personalDailyTarget}
-                  onChange={(event) => {
-                    setPersonalDailyTarget(event.target.value);
-                    setPersonalPlanMessage('');
-                  }}
-                  placeholder="Например: 3"
-                  required
-                />
-              </div>
-
-              <button type="submit" className="button-primary">
-                Сохранить план
-              </button>
-
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={handleClearPersonalPlan}
-                disabled={!personalPlan}
-              >
-                Убрать план
-              </button>
-            </form>
-
-            <p className="task-summary">
-              {personalPlan?.dailyTarget != null
-                ? `План: ${personalPlan.dailyTarget} задач в день · ${personalPlan.dailyTarget * 7} задач в неделю`
-                : 'План не задан'}
-            </p>
-
-            {personalPlanMessage && (
-              <p className="form-hint" role="status">
-                {personalPlanMessage}
-              </p>
             )}
 
-            <p className="task-summary" role="status">
-              {tasks.length === 0
-                ? 'Общий прогресс: пока нет задач'
-                : `Всего выполнено: ${completedTasksCount} из ${tasks.length} · ${taskCompletionPercent}%`}
-            </p>
-
-            <div className="personal-plan-progress">
-              <p className="task-summary" role="status">
-                {personalPlan?.dailyTarget != null
-                  ? `План на сегодня: ${completedTodayCount} / ${personalPlan.dailyTarget} · ${Math.round(
-                      (completedTodayCount / personalPlan.dailyTarget) * 100,
-                    )}%`
-                  : `Выполнено сегодня: ${completedTodayCount} · План не задан`}
-              </p>
-
-              {personalPlan?.dailyTarget != null && (
-                <progress
-                  className="personal-plan-progress-bar"
-                  aria-label="Выполнение дневного плана личного чеклиста"
-                  max={personalPlan.dailyTarget}
-                  value={Math.min(
-                    completedTodayCount,
-                    personalPlan.dailyTarget,
-                  )}
-                  style={
-                    {
-                      '--progress-color':
-                        completedTodayCount === 0
-                          ? '#9aa0b5'
-                          : `hsl(${
-                              Math.min(
-                                completedTodayCount / personalPlan.dailyTarget,
-                                1,
-                              ) * 120
-                            } 80% 55%)`,
-                    } as CSSProperties
-                  }
-                />
-              )}
-            </div>
-
-            <div className="task-actions">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={handleClearCompletedTasks}
-                disabled={
-                  editingTaskId !== null ||
-                  !tasks.some((task) => task.isCompleted)
-                }
-              >
-                Очистить выполненные
-              </button>
-
-              <p className="form-hint">
-                Удаляет все выполненные задачи без возможности восстановления.
-              </p>
-            </div>
-
-            <div className="personal-plan-progress">
-              <p className="form-hint">
-                Неделя: {currentWeek.start} — {currentWeek.end}
-              </p>
-
-              <p className="task-summary" role="status">
-                {personalPlan?.dailyTarget != null
-                  ? `План на неделю: ${completedThisWeekCount} / ${personalPlan.dailyTarget * 7} · ${Math.round(
-                      (completedThisWeekCount /
-                        (personalPlan.dailyTarget * 7)) *
-                        100,
-                    )}%`
-                  : `Выполнено за неделю: ${completedThisWeekCount} · План не задан`}
-              </p>
-
-              {personalPlan?.dailyTarget != null && (
-                <progress
-                  className="personal-plan-progress-bar"
-                  aria-label="Выполнение недельного плана личного чеклиста"
-                  max={personalPlan.dailyTarget * 7}
-                  value={Math.min(
-                    completedThisWeekCount,
-                    personalPlan.dailyTarget * 7,
-                  )}
-                />
-              )}
-            </div>
-
-            <form className="task-form" onSubmit={handleAddTask}>
-              <div className="form-field">
-                <label htmlFor="new-task-title">Новая задача</label>
-
-                <input
-                  id="new-task-title"
-                  type="text"
-                  value={newTaskTitle}
-                  onChange={(event) => setNewTaskTitle(event.target.value)}
-                  placeholder="Например: разобрать почту"
-                  required
-                />
-              </div>
-
-              <button type="submit" className="button-primary">
-                Добавить
-              </button>
-            </form>
-
-            {tasks.length === 0 ? (
-              <p className="empty-state">Задач пока нет. Добавь первую.</p>
-            ) : (
-              <ul className="task-list">
-                {tasks.map((task) => (
-                  <li
-                    className={
-                      task.isCompleted ? 'task-item completed' : 'task-item'
-                    }
-                    key={task.id}
+            {projectPendingDeletion && (
+              <div className="modal-backdrop" role="presentation">
+                <div
+                  className="modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="delete-project-title"
+                >
+                  <h2 id="delete-project-title">Удалить проект?</h2>
+                  <button
+                    type="button"
+                    className="modal-close"
+                    aria-label="Закрыть"
+                    onClick={() => setProjectPendingDeletion(null)}
                   >
-                    {editingTaskId === task.id ? (
-                      <form
-                        className="task-edit-form"
-                        onSubmit={handleSaveTask}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Escape') {
-                            event.preventDefault();
-                            handleCancelEditTask();
-                          }
-                        }}
-                      >
-                        <div className="form-field">
-                          <label htmlFor={`edit-task-${task.id}`}>
-                            Название задачи
-                          </label>
+                    ×
+                  </button>
+                  <p>
+                    Проект «{projectPendingDeletion.title}» и все его подзадачи
+                    будут удалены. Действие нельзя отменить.
+                  </p>
 
-                          <input
-                            id={`edit-task-${task.id}`}
-                            type="text"
-                            value={editingTaskTitle}
-                            onChange={(event) =>
-                              setEditingTaskTitle(event.target.value)
-                            }
-                            required
-                          />
-                        </div>
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="modal-button-cancel"
+                      onClick={() => setProjectPendingDeletion(null)}
+                    >
+                      Отмена
+                    </button>
 
-                        <div className="task-item-actions">
-                          <button
-                            type="submit"
-                            disabled={!editingTaskTitle.trim()}
-                          >
-                            Сохранить
-                          </button>
-
-                          <button
-                            type="button"
-                            className="button-secondary"
-                            onClick={handleCancelEditTask}
-                          >
-                            Отмена
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <>
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={task.isCompleted}
-                            onChange={() => handleToggleTask(task.id)}
-                          />
-
-                          <span>{task.title}</span>
-                        </label>
-
-                        <div className="task-item-actions">
-                          <button
-                            type="button"
-                            className="button-secondary"
-                            onClick={() => handleStartEditTask(task)}
-                            disabled={editingTaskId !== null}
-                            aria-label={`Изменить задачу: ${task.title}`}
-                          >
-                            Изменить
-                          </button>
-
-                          <button
-                            type="button"
-                            className="button-danger"
-                            onClick={() => handleDeleteTask(task.id)}
-                            aria-label={`Удалить задачу: ${task.title}`}
-                          >
-                            Удалить
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                    <button
+                      type="button"
+                      className="modal-button-action"
+                      onClick={handleConfirmProjectDeletion}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
+            {isImportConfirmOpen && (
+              <div className="modal-overlay">
+                <div className="modal">
+                  <h2>Подтвердите импорт</h2>
+                  <button
+                    type="button"
+                    className="modal-close"
+                    aria-label="Закрыть"
+                    onClick={() => {
+                      setIsImportConfirmOpen(false);
+                    }}
+                  >
+                    ×
+                  </button>
+
+                  <p>
+                    Текущие проекты и подзадачи будут заменены данными из
+                    выбранного файла.
+                  </p>
+
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="modal-button-cancel"
+                      onClick={() => setIsImportConfirmOpen(false)}
+                    >
+                      Отмена
+                    </button>
+
+                    <button
+                      type="button"
+                      className="modal-button-action"
+                      onClick={handleImportProjects}
+                    >
+                      Заменить данные
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+        {activeTab === 'notes' && (
+          <section className="notes-section" aria-labelledby="notes-heading">
+            <div className="section-heading">
+              <h2 id="notes-heading">Заметки</h2>
+            </div>
+
+            <div className="notes-filters">
+              <label className="notes-filter">
+                Сфера:
+                <select
+                  value={noteSphereFilter}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    setNoteSphereFilter(event.target.value)
+                  }
+                >
+                  <option value="all">Все</option>
+                  {initialSpheres.map((sphere) => (
+                    <option key={sphere.id} value={sphere.id}>
+                      {sphere.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="notes-filter">
+                Статус:
+                <select
+                  value={noteStatusFilter}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    setNoteStatusFilter(
+                      event.target.value as 'all' | 'open' | 'done',
+                    )
+                  }
+                >
+                  <option value="all">Все</option>
+                  <option value="open">Не отработанные</option>
+                  <option value="done">Отработанные</option>
+                </select>
+              </label>
+            </div>
+
+            {(() => {
+              const notes = activities.filter(
+                (activity) => activity.note.trim() !== '',
+              );
+
+              const filteredNotes = notes.filter((activity) => {
+                const template = initialActionTemplates.find(
+                  (item) => item.id === activity.templateId,
+                );
+
+                const sphere = initialSpheres.find(
+                  (item) => item.id === template?.sphereId,
+                );
+
+                const matchesSphere =
+                  noteSphereFilter === 'all' || sphere?.id === noteSphereFilter;
+
+                const isProcessed = processedNoteIds.includes(activity.id);
+
+                const matchesStatus =
+                  noteStatusFilter === 'all' ||
+                  (noteStatusFilter === 'done' && isProcessed) ||
+                  (noteStatusFilter === 'open' && !isProcessed);
+
+                return matchesSphere && matchesStatus;
+              });
+
+              if (filteredNotes.length === 0) {
+                return (
+                  <div className="empty-state">
+                    <h3>Заметок нет</h3>
+                    <p>Добавь заметку к активности — она появится здесь.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="notes-list">
+                  {filteredNotes.map((activity) => {
+                    const template = initialActionTemplates.find(
+                      (item) => item.id === activity.templateId,
+                    );
+
+                    const sphere = initialSpheres.find(
+                      (item) => item.id === template?.sphereId,
+                    );
+
+                    const isProcessed = processedNoteIds.includes(activity.id);
+
+                    return (
+                      <article
+                        className={
+                          isProcessed ? 'note-card processed' : 'note-card'
+                        }
+                        key={activity.id}
+                      >
+                        <p className="note-text">{activity.note}</p>
+
+                        <div className="note-meta">
+                          <span>{formatActivityDate(activity.date)}</span>
+                          <span>{sphere?.name ?? 'Неизвестная сфера'}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          className={
+                            isProcessed ? 'button-secondary' : 'button-primary'
+                          }
+                          onClick={() => toggleNoteProcessed(activity.id)}
+                        >
+                          {isProcessed ? 'Снять отметку' : 'Отработано'}
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </section>
-          <p className="footnote">
-            Активности и задачи сохраняются локально на этом устройстве.
-          </p>
-        </section>
-        {activityToDelete && (
-          <div className="modal-backdrop" role="presentation">
-            <div
-              className="modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="delete-activity-title"
-            >
-              <h2 id="delete-activity-title">Удалить активность?</h2>
-
-              <button
-                type="button"
-                className="modal-close"
-                aria-label="Закрыть"
-                onClick={cancelDeleteActivity}
-              >
-                ×
-              </button>
-
-              <p> Запись будет удалена без возможности восстановить её </p>
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="modal-button-cancel"
-                  onClick={cancelDeleteActivity}
-                >
-                  Отмена
-                </button>
-
-                <button
-                  type="button"
-                  className="modal-button-action"
-                  onClick={confirmDeleteActivity}
-                >
-                  Удалить
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {projectPendingDeletion && (
-          <div className="modal-backdrop" role="presentation">
-            <div
-              className="modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="delete-project-title"
-            >
-              <h2 id="delete-project-title">Удалить проект?</h2>
-              <button
-                type="button"
-                className="modal-close"
-                aria-label="Закрыть"
-                onClick={() => setProjectPendingDeletion(null)}
-              >
-                ×
-              </button>
-              <p>
-                Проект «{projectPendingDeletion.title}» и все его подзадачи
-                будут удалены. Действие нельзя отменить.
-              </p>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="modal-button-cancel"
-                  onClick={() => setProjectPendingDeletion(null)}
-                >
-                  Отмена
-                </button>
-
-                <button
-                  type="button"
-                  className="modal-button-action"
-                  onClick={handleConfirmProjectDeletion}
-                >
-                  Удалить
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {isImportConfirmOpen && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <h2>Подтвердите импорт</h2>
-              <button
-                type="button"
-                className="modal-close"
-                aria-label="Закрыть"
-                onClick={() => {
-                  setIsImportConfirmOpen(false);
-                }}
-              >
-                ×
-              </button>
-
-              <p>
-                Текущие проекты и подзадачи будут заменены данными из выбранного
-                файла.
-              </p>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="modal-button-cancel"
-                  onClick={() => setIsImportConfirmOpen(false)}
-                >
-                  Отмена
-                </button>
-
-                <button
-                  type="button"
-                  className="modal-button-action"
-                  onClick={handleImportProjects}
-                >
-                  Заменить данные
-                </button>
-              </div>
-            </div>
-          </div>
         )}
       </main>
     </div>
