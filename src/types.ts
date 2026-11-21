@@ -87,6 +87,7 @@ export type ActivitySpherePlan = {
   source: 'activities';
   templateIds: EntityId[];
   metric: 'count' | 'quantity' | 'minutes';
+  frequency?: 'daily' | 'weekly';
   dailyTarget: number | null;
   weeklyTarget: number | null;
 };
