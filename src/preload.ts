@@ -5,7 +5,6 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('batyaOS', {
   songsterr: {
-    search: (query: string) =>
-      ipcRenderer.invoke('songsterr:search', query),
+    search: (query: string) => ipcRenderer.invoke('songsterr:search', query),
   },
 });

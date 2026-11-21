@@ -1758,6 +1758,10 @@ export default function App() {
                             <span className="weekly-progress-target">
                               {item.target}
                             </span>
+                            {' · '}
+                            <span className="weekly-progress-percent">
+                              {Math.round(item.ratio * 100)}%
+                            </span>
                           </>
                         ) : (
                           <>

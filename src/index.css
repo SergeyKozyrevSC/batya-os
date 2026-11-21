@@ -938,6 +938,11 @@ body:has(.modal-backdrop) {
   font-weight: 700;
 }
 
+.weekly-progress-percent {
+  color: #9aa0b5;
+  font-weight: 600;
+}
+
 .weekly-progress-bar {
   display: block;
   width: 100%;

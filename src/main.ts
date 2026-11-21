@@ -66,7 +66,7 @@ ipcMain.handle(
             name: item.artist,
           },
         }));
-    } catch (error) {
+    } catch {
       return [];
     }
   },
