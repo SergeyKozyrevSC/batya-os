@@ -67,6 +67,21 @@ export type ProjectTask = {
   completedAt: ActivityDate | null;
 };
 
+export type Song = {
+  id: EntityId;
+  title: string;
+  songsterrUrl: string | null;
+  isLearned: boolean;
+};
+
+export type SongsterrSong = {
+  id: number;
+  title: string;
+  artist?: {
+    name?: string;
+  };
+};
+
 export type ActivitySpherePlan = {
   sphereId: EntityId;
   source: 'activities';
@@ -83,3 +98,13 @@ export type TaskSpherePlan = {
 };
 
 export type SpherePlan = ActivitySpherePlan | TaskSpherePlan;
+
+declare global {
+  interface Window {
+    batyaOS?: {
+      songsterr: {
+        search: (query: string) => Promise<unknown>;
+      };
+    };
+  }
+}

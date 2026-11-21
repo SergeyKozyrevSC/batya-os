@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -14,6 +15,8 @@ import type {
   EntityId,
   Project,
   ProjectTask,
+  Song,
+  SongsterrSong,
   SpherePlan,
   Task,
 } from './types';
@@ -23,6 +26,7 @@ const TASKS_STORAGE_KEY = 'batya-os.tasks';
 const PROJECTS_STORAGE_KEY = 'batya-os.projects';
 const PROJECT_TASKS_STORAGE_KEY = 'batya-os.project-tasks';
 const SPHERE_PLANS_STORAGE_KEY = 'batya-os.sphere-plans';
+const SONGS_STORAGE_KEY = 'batya-os.songs';
 function isPlanTarget(value: unknown): value is number | null {
   return (
     value === null ||
@@ -381,7 +385,50 @@ export default function App() {
       JSON.stringify(projectTasks),
     );
   }, [projectTasks]);
+  const [songs, setSongs] = useState<Song[]>(() => {
+    try {
+      const storedSongs = window.localStorage.getItem(SONGS_STORAGE_KEY);
 
+      if (!storedSongs) {
+        return [];
+      }
+
+      const parsedSongs: unknown = JSON.parse(storedSongs);
+
+      if (!Array.isArray(parsedSongs)) {
+        return [];
+      }
+
+      return parsedSongs.filter((item: unknown): item is Song => {
+        if (typeof item !== 'object' || item === null) {
+          return false;
+        }
+
+        const candidate = item as Partial<Song>;
+
+        return (
+          typeof candidate.id === 'string' &&
+          candidate.id.trim() !== '' &&
+          typeof candidate.title === 'string' &&
+          candidate.title.trim() !== '' &&
+          (candidate.songsterrUrl === null ||
+            typeof candidate.songsterrUrl === 'string') &&
+          typeof candidate.isLearned === 'boolean'
+        );
+      });
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(SONGS_STORAGE_KEY, JSON.stringify(songs));
+  }, [songs]);
+
+  const [songSearchQuery, setSongSearchQuery] = useState('');
+  const [songSuggestions, setSongSuggestions] = useState<SongsterrSong[]>([]);
+  const [songSearchError, setSongSearchError] = useState('');
+  const [isSongSearchLoading, setIsSongSearchLoading] = useState(false);
   const todayDate = getTodayDate();
 
   const completedTodayCount = tasks.filter(
@@ -635,6 +682,136 @@ export default function App() {
             ? 'minutes'
             : 'count',
     }));
+  };
+
+  const searchSongs = useCallback(async (query: string) => {
+    if (!window.batyaOS) {
+      setSongSearchError(
+        'IPC недоступен: window.batyaOS не найден. Перезапусти приложение.',
+      );
+      setIsSongSearchLoading(false);
+      return;
+    }
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery.length < 3) {
+      setSongSuggestions([]);
+      setSongSearchError('');
+      return;
+    }
+
+    setIsSongSearchLoading(true);
+    setSongSearchError('');
+    setSongSuggestions([]);
+
+    try {
+      const result = await window.batyaOS.songsterr.search(trimmedQuery);
+
+      if (!Array.isArray(result)) {
+        throw new Error('Не удалось получить результаты поиска');
+      }
+
+      setSongSuggestions(
+        result.filter((item: unknown): item is SongsterrSong => {
+          if (typeof item !== 'object' || item === null) {
+            return false;
+          }
+
+          const candidate = item as Partial<SongsterrSong>;
+
+          return (
+            typeof candidate.id === 'number' &&
+            typeof candidate.title === 'string' &&
+            candidate.title.trim() !== ''
+          );
+        }),
+      );
+    } catch {
+      setSongSearchError(
+        'Не удалось получить подсказки Songsterr. Открой поиск вручную.',
+      );
+    } finally {
+      setIsSongSearchLoading(false);
+    }
+  }, []);
+
+  const handleSongSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void searchSongs(songSearchQuery);
+  };
+
+  useEffect(() => {
+    const query = songSearchQuery.trim();
+
+    if (query.length < 3) {
+      setSongSuggestions([]);
+      setSongSearchError('');
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void searchSongs(query);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [songSearchQuery, searchSongs]);
+
+  const handleAddSongFromSuggestion = (suggestion: SongsterrSong) => {
+    const artistName = suggestion.artist?.name?.trim() ?? '';
+    const title = suggestion.title.trim();
+
+    const songTitle = artistName ? `${artistName} - ${title}` : title;
+
+    const newSong: Song = {
+      id: crypto.randomUUID(),
+      title: songTitle,
+      songsterrUrl: `https://www.songsterr.com/a/wa/song?id=${suggestion.id}`,
+      isLearned: false,
+    };
+
+    setSongs((current) => [newSong, ...current]);
+    setSongSearchQuery('');
+    setSongSuggestions([]);
+    setSongSearchError('');
+  };
+
+  const handleAddSongFromQuery = () => {
+    const title = songSearchQuery.trim();
+
+    if (!title) {
+      return;
+    }
+
+    const newSong: Song = {
+      id: crypto.randomUUID(),
+      title,
+      songsterrUrl: null,
+      isLearned: false,
+    };
+
+    setSongs((current) => [newSong, ...current]);
+    setSongSearchQuery('');
+    setSongSuggestions([]);
+    setSongSearchError('');
+  };
+
+  const handleToggleSongLearned = (songId: EntityId) => {
+    setSongs((current) =>
+      current.map((song) => {
+        if (song.id !== songId) {
+          return song;
+        }
+
+        return {
+          ...song,
+          isLearned: !song.isLearned,
+        };
+      }),
+    );
+  };
+
+  const handleDeleteSong = (songId: EntityId) => {
+    setSongs((current) => current.filter((song) => song.id !== songId));
   };
 
   function handleAddProject(event: FormEvent<HTMLFormElement>) {
@@ -1686,6 +1863,136 @@ export default function App() {
               );
             })}
           </div>
+        </section>
+        <section
+          className="song-section"
+          aria-labelledby="song-section-heading"
+        >
+          <div className="section-heading">
+            <h2 id="song-section-heading">Песни</h2>
+          </div>
+
+          <form className="song-search-form" onSubmit={handleSongSearchSubmit}>
+            <div className="form-field">
+              <label htmlFor="song-search">Найти песню в Songsterr</label>
+
+              <input
+                id="song-search"
+                type="text"
+                value={songSearchQuery}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  setSongSearchQuery(event.target.value)
+                }
+                placeholder="Например: Sum 41 - Fat Lip"
+              />
+            </div>
+
+            <button type="submit" disabled={isSongSearchLoading}>
+              Найти
+            </button>
+
+            <a
+              className="button-secondary"
+              href={`https://www.songsterr.com/search?pattern=${encodeURIComponent(
+                songSearchQuery,
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Открыть поиск
+            </a>
+          </form>
+
+          {isSongSearchLoading && (
+            <p className="form-hint" role="status">
+              Ищу песни в Songsterr…
+            </p>
+          )}
+
+          {songSearchError && (
+            <p className="form-error" role="alert">
+              {songSearchError}
+            </p>
+          )}
+
+          {songSuggestions.length > 0 && (
+            <ul className="song-suggestions">
+              {songSuggestions.map((suggestion) => {
+                const artistName = suggestion.artist?.name?.trim() ?? '';
+                const suggestionTitle = artistName
+                  ? `${artistName} - ${suggestion.title}`
+                  : suggestion.title;
+
+                return (
+                  <li key={suggestion.id}>
+                    <span>{suggestionTitle}</span>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddSongFromSuggestion(suggestion)}
+                    >
+                      Добавить
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {songSearchQuery.trim() !== '' && (
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={handleAddSongFromQuery}
+            >
+              Добавить введённое
+            </button>
+          )}
+
+          {songs.length === 0 ? (
+            <div className="empty-state">
+              <h3>Пока нет песен</h3>
+              <p>Добавь песни, к которым хочешь вернуться позже.</p>
+            </div>
+          ) : (
+            <ul className="song-list">
+              {songs.map((song) => (
+                <li
+                  className={song.isLearned ? 'song-item learned' : 'song-item'}
+                  key={song.id}
+                >
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={song.isLearned}
+                      onChange={() => handleToggleSongLearned(song.id)}
+                    />
+                    <span>{song.title}</span>
+                  </label>
+
+                  <div className="song-item-actions">
+                    {song.songsterrUrl && (
+                      <a
+                        href={song.songsterrUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Songsterr
+                      </a>
+                    )}
+
+                    <button
+                      type="button"
+                      className="button-danger"
+                      onClick={() => handleDeleteSong(song.id)}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
         <section
           className="activity-section"

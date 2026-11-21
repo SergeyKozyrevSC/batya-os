@@ -1,11 +1,76 @@
-import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
+import { app, BrowserWindow, ipcMain, net } from 'electron';
 import started from 'electron-squirrel-startup';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
+
+type SongsterrSearchResult = {
+  songId: number;
+  title: string;
+  artist: string;
+};
+
 if (started) {
   app.quit();
 }
+ipcMain.handle(
+  'songsterr:search',
+  async (_event: Electron.IpcMainInvokeEvent, query: unknown) => {
+    if (typeof query !== 'string') {
+      return [];
+    }
+
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery.length < 3) {
+      return [];
+    }
+
+    try {
+      const response = await net.fetch(
+        `https://www.songsterr.com/api/songs?pattern=${encodeURIComponent(
+          trimmedQuery,
+        )}`,
+      );
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const result: unknown = await response.json();
+
+      if (!Array.isArray(result)) {
+        return [];
+      }
+
+      return result
+        .filter((item: unknown): item is SongsterrSearchResult => {
+          if (typeof item !== 'object' || item === null) {
+            return false;
+          }
+
+          const candidate = item as Partial<SongsterrSearchResult>;
+
+          return (
+            typeof candidate.songId === 'number' &&
+            typeof candidate.title === 'string' &&
+            candidate.title.trim() !== '' &&
+            typeof candidate.artist === 'string'
+          );
+        })
+        .slice(0, 8)
+        .map((item) => ({
+          id: item.songId,
+          title: item.title,
+          artist: {
+            name: item.artist,
+          },
+        }));
+    } catch (error) {
+      return [];
+    }
+  },
+);
 
 const createWindow = () => {
   // Create the browser window.
