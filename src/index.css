@@ -1160,3 +1160,37 @@ body:has(.modal-backdrop) {
     align-items: flex-start;
   }
 }
+
+.sphere-plan-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sphere-plan-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #d9dcea;
+  font-size: 13px;
+}
+
+.sphere-plan-target input {
+  width: 72px;
+  padding: 6px 8px;
+  border: 1px solid #454354;
+  border-radius: 6px;
+  background: #13141b;
+  color: #edf0f7;
+  font: inherit;
+  color-scheme: dark;
+}
+
+.sphere-plan-template-name {
+  align-self: center;
+  color: #d9dcea;
+  font-size: 14px;
+  font-weight: 600;
+}

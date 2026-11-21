@@ -637,25 +637,37 @@ export default function App() {
     });
   };
 
-  const handleToggleSphereTemplate = (
-    sphereId: EntityId,
-    templateId: EntityId,
-  ) => {
-    updateActivitySpherePlan(sphereId, (plan) => ({
-      ...plan,
-      templateIds: plan.templateIds.includes(templateId)
-        ? plan.templateIds.filter((id) => id !== templateId)
-        : [...plan.templateIds, templateId],
-    }));
+  const handleSphereFrequencyChange = (sphereId: EntityId, value: string) => {
+    const frequency = value === 'weekly' ? 'weekly' : 'daily';
+
+    updateActivitySpherePlan(sphereId, (plan) => {
+      if (frequency === 'weekly') {
+        return {
+          ...plan,
+          frequency,
+          dailyTarget: null,
+        };
+      }
+
+      return {
+        ...plan,
+        frequency,
+        weeklyTarget:
+          plan.dailyTarget != null ? plan.dailyTarget * 7 : plan.weeklyTarget,
+      };
+    });
   };
 
   const handleSphereDailyTargetChange = (sphereId: EntityId, value: string) => {
     const parsedValue = Number.parseInt(value, 10);
+    const dailyTarget =
+      Number.isNaN(parsedValue) || parsedValue < 1 ? null : parsedValue;
 
     updateActivitySpherePlan(sphereId, (plan) => ({
       ...plan,
-      dailyTarget:
-        Number.isNaN(parsedValue) || parsedValue < 1 ? null : parsedValue,
+      frequency: 'daily',
+      dailyTarget,
+      weeklyTarget: dailyTarget != null ? dailyTarget * 7 : null,
     }));
   };
 
@@ -664,12 +676,23 @@ export default function App() {
     value: string,
   ) => {
     const parsedValue = Number.parseInt(value, 10);
+    const weeklyTarget =
+      Number.isNaN(parsedValue) || parsedValue < 1 ? null : parsedValue;
 
-    updateActivitySpherePlan(sphereId, (plan) => ({
-      ...plan,
-      weeklyTarget:
-        Number.isNaN(parsedValue) || parsedValue < 1 ? null : parsedValue,
-    }));
+    updateActivitySpherePlan(sphereId, (plan) => {
+      const isDaily = plan.frequency !== 'weekly';
+
+      return {
+        ...plan,
+        weeklyTarget,
+        dailyTarget:
+          isDaily && weeklyTarget != null
+            ? Math.round(weeklyTarget / 7)
+            : isDaily
+              ? null
+              : plan.dailyTarget,
+      };
+    });
   };
 
   const handleSphereMetricChange = (sphereId: EntityId, value: string) => {
@@ -1809,58 +1832,86 @@ export default function App() {
                   {item.isActivitySphere && (
                     <details className="weekly-progress-settings">
                       <summary>Настройки</summary>
-                      <label className="sphere-plan-target">
-                        Метрика:
-                        <select
-                          value={activityPlan?.metric ?? 'count'}
-                          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                            handleSphereMetricChange(
-                              item.sphereId,
-                              event.target.value,
-                            )
-                          }
-                        >
-                          <option value="count">Количество</option>
-                          <option value="quantity">Результат</option>
-                          <option value="minutes">Минуты</option>
-                        </select>
-                      </label>
-                      <div className="sphere-plan-templates">
-                        {sphereTemplates.map((template) => (
-                          <label key={template.id}>
-                            <input
-                              type="checkbox"
-                              checked={
-                                activityPlan?.templateIds.includes(
-                                  template.id,
-                                ) ?? false
-                              }
-                              onChange={() =>
-                                handleToggleSphereTemplate(
+                      <div className="sphere-plan-settings">
+                        <span className="sphere-plan-template-name">
+                          {item.sphereId === 'sphere-fitness'
+                            ? 'Тренировка'
+                            : (sphereTemplates[0]?.name ?? 'Действие')}
+                        </span>
+
+                        {item.sphereId !== 'sphere-fitness' && (
+                          <label className="sphere-plan-target">
+                            Метрика:
+                            <select
+                              value={activityPlan?.metric ?? 'count'}
+                              onChange={(
+                                event: ChangeEvent<HTMLSelectElement>,
+                              ) =>
+                                handleSphereMetricChange(
                                   item.sphereId,
-                                  template.id,
+                                  event.target.value,
+                                )
+                              }
+                            >
+                              <option value="count">Количество</option>
+                              <option value="quantity">Результат</option>
+                              <option value="minutes">Минуты</option>
+                            </select>
+                          </label>
+                        )}
+
+                        <label className="sphere-plan-target">
+                          Режим:
+                          <select
+                            value={activityPlan?.frequency ?? 'daily'}
+                            onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                              handleSphereFrequencyChange(
+                                item.sphereId,
+                                event.target.value,
+                              )
+                            }
+                          >
+                            <option value="daily">Ежедневно</option>
+                            <option value="weekly">За неделю</option>
+                          </select>
+                        </label>
+
+                        {(activityPlan?.frequency ?? 'daily') === 'daily' && (
+                          <label className="sphere-plan-target">
+                            Цель на день:
+                            <input
+                              type="number"
+                              min="1"
+                              value={
+                                activityPlan?.dailyTarget?.toString() ?? ''
+                              }
+                              onChange={(
+                                event: ChangeEvent<HTMLInputElement>,
+                              ) =>
+                                handleSphereDailyTargetChange(
+                                  item.sphereId,
+                                  event.target.value,
                                 )
                               }
                             />
-                            {template.name}
                           </label>
-                        ))}
-                      </div>
+                        )}
 
-                      <label className="sphere-plan-target">
-                        Цель на день:
-                        <input
-                          type="number"
-                          min="1"
-                          value={activityPlan?.dailyTarget?.toString() ?? ''}
-                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                            handleSphereDailyTargetChange(
-                              item.sphereId,
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
+                        <label className="sphere-plan-target">
+                          Цель на неделю:
+                          <input
+                            type="number"
+                            min="1"
+                            value={activityPlan?.weeklyTarget?.toString() ?? ''}
+                            onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                              handleSphereWeeklyTargetChange(
+                                item.sphereId,
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
                     </details>
                   )}
                 </div>
