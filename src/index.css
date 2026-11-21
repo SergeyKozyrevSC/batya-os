@@ -1194,3 +1194,86 @@ body:has(.modal-backdrop) {
   font-size: 14px;
   font-weight: 600;
 }
+
+.sidebar-tabs {
+  display: grid;
+  gap: 8px;
+}
+
+.sidebar-tab {
+  padding: 10px 12px;
+  border: 1px solid #2b2d39;
+  border-radius: 8px;
+  background: #191b23;
+  color: #9aa0b5;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-tab.active {
+  border-color: #4f7cff;
+  background: #1d2433;
+  color: #edf0f7;
+  font-weight: 600;
+}
+
+.notes-section {
+  margin-top: 24px;
+}
+
+.notes-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.notes-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #d9dcea;
+  font-size: 13px;
+}
+
+.notes-filter select {
+  padding: 6px 8px;
+  border: 1px solid #454354;
+  border-radius: 6px;
+  background: #13141b;
+  color: #edf0f7;
+  font: inherit;
+  color-scheme: dark;
+}
+
+.notes-list {
+  display: grid;
+  gap: 12px;
+}
+
+.note-card {
+  padding: 16px;
+  border: 1px solid #2b2d39;
+  border-radius: 12px;
+  background: #191b23;
+}
+
+.note-card.processed {
+  opacity: 0.65;
+}
+
+.note-text {
+  margin: 0 0 12px;
+  color: #edf0f7;
+  white-space: pre-wrap;
+}
+
+.note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #9aa0b5;
+  font-size: 13px;
+}
